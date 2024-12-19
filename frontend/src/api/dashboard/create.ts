@@ -4,11 +4,12 @@ import { AxiosError } from 'axios';
 import { ErrorResponse, SuccessResponse } from 'types/api';
 import { PayloadProps, Props } from 'types/api/dashboard/create';
 
-const create = async (
+const createDashboard = async (
 	props: Props,
 ): Promise<SuccessResponse<PayloadProps> | ErrorResponse> => {
+	const url = props.uploadedGrafana ? '/dashboards/grafana' : '/dashboards';
 	try {
-		const response = await axios.post('/dashboards', {
+		const response = await axios.post(url, {
 			...props,
 		});
 
@@ -23,4 +24,4 @@ const create = async (
 	}
 };
 
-export default create;
+export default createDashboard;

@@ -1,11 +1,10 @@
-import { IResourceAttributeQuery } from 'container/MetricsApplication/ResourceAttributesFilter/types';
+import { TopOperationList } from 'container/MetricsApplication/TopOperationsTable';
 import { DBOverView } from 'types/api/metrics/getDBOverview';
 import { ExternalAverageDuration } from 'types/api/metrics/getExternalAverageDuration';
 import { ExternalError } from 'types/api/metrics/getExternalError';
 import { ExternalService } from 'types/api/metrics/getExternalService';
 import { ServicesList } from 'types/api/metrics/getService';
 import { ServiceOverview } from 'types/api/metrics/getServiceOverview';
-import { TopEndPoints } from 'types/api/metrics/getTopEndPoints';
 
 interface MetricReducer {
 	services: ServicesList[];
@@ -15,12 +14,11 @@ interface MetricReducer {
 	errorMessage: string;
 	dbOverView: DBOverView[];
 	externalService: ExternalService[];
-	topEndPoints: TopEndPoints[];
+	topOperations: TopOperationList[];
 	externalAverageDuration: ExternalAverageDuration[];
 	externalError: ExternalError[];
 	serviceOverview: ServiceOverview[];
-	resourceAttributeQueries: IResourceAttributeQuery[];
-	resourceAttributePromQLQuery: string;
+	topLevelOperations: string[];
 }
 
 export default MetricReducer;

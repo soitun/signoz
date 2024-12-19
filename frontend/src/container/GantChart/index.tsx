@@ -1,9 +1,9 @@
 import { MinusSquareOutlined, PlusSquareOutlined } from '@ant-design/icons';
 import { IIntervalUnit } from 'container/TraceDetail/utils';
-import React, { useEffect, useState } from 'react';
+import { Dispatch, SetStateAction, useEffect, useState } from 'react';
 import { ITraceTree } from 'types/api/trace/getTraceItem';
 
-import { CardContainer, CardWrapper, CollapseButton, Wrapper } from './styles';
+import { CardContainer, CardWrapper, CollapseButton } from './styles';
 import Trace from './Trace';
 import { getSpanPath } from './utils';
 
@@ -36,35 +36,37 @@ function GanttChart(props: GanttChartProps): JSX.Element {
 		setIsExpandAll((prev) => !prev);
 	};
 	return (
-		<Wrapper>
-			<CardContainer>
-				<CollapseButton
-					onClick={handleCollapse}
-					title={isExpandAll ? 'Collapse All' : 'Expand All'}
-				>
-					{isExpandAll ? <MinusSquareOutlined /> : <PlusSquareOutlined />}
-				</CollapseButton>
-				<CardWrapper>
-					<Trace
-						activeHoverId={activeHoverId}
-						activeSpanPath={activeSpanPath}
-						setActiveHoverId={setActiveHoverId}
-						key={data.id}
-						// eslint-disable-next-line react/jsx-props-no-spreading
-						{...{
-							...data,
-							globalSpread,
-							globalStart,
-							setActiveSelectedId,
-							activeSelectedId,
-						}}
-						level={0}
-						isExpandAll={isExpandAll}
-						intervalUnit={intervalUnit}
-					/>
-				</CardWrapper>
-			</CardContainer>
-		</Wrapper>
+		<CardContainer>
+			<CollapseButton
+				onClick={handleCollapse}
+				title={isExpandAll ? 'Collapse All' : 'Expand All'}
+			>
+				{isExpandAll ? (
+					<MinusSquareOutlined style={{ fontSize: '16px', color: '#08c' }} />
+				) : (
+					<PlusSquareOutlined style={{ fontSize: '16px', color: '#08c' }} />
+				)}
+			</CollapseButton>
+			<CardWrapper>
+				<Trace
+					activeHoverId={activeHoverId}
+					activeSpanPath={activeSpanPath}
+					setActiveHoverId={setActiveHoverId}
+					key={data.id}
+					// eslint-disable-next-line react/jsx-props-no-spreading
+					{...{
+						...data,
+						globalSpread,
+						globalStart,
+						setActiveSelectedId,
+						activeSelectedId,
+					}}
+					level={0}
+					isExpandAll={isExpandAll}
+					intervalUnit={intervalUnit}
+				/>
+			</CardWrapper>
+		</CardContainer>
 	);
 }
 
@@ -81,8 +83,8 @@ export interface GanttChartProps {
 	traceMetaData: ITraceMetaData;
 	activeSelectedId: string;
 	activeHoverId: string;
-	setActiveHoverId: React.Dispatch<React.SetStateAction<string>>;
-	setActiveSelectedId: React.Dispatch<React.SetStateAction<string>>;
+	setActiveHoverId: Dispatch<SetStateAction<string>>;
+	setActiveSelectedId: Dispatch<SetStateAction<string>>;
 	spanId: string;
 	intervalUnit: IIntervalUnit;
 }

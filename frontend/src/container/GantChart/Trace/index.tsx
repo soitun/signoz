@@ -1,14 +1,22 @@
 import { CaretDownFilled, CaretRightFilled } from '@ant-design/icons';
-import { Col } from 'antd';
+import { Col, Typography } from 'antd';
 import { StyledCol, StyledRow } from 'components/Styled';
 import { IIntervalUnit } from 'container/TraceDetail/utils';
-import useThemeMode from 'hooks/useThemeMode';
+import { useIsDarkMode } from 'hooks/useDarkMode';
 import { SPAN_DETAILS_LEFT_COL_WIDTH } from 'pages/TraceDetail/constants';
-import React, { useEffect, useRef, useState } from 'react';
+import {
+	Dispatch,
+	MouseEventHandler,
+	SetStateAction,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from 'react';
 import { ITraceTree } from 'types/api/trace/getTraceItem';
 
 import { ITraceMetaData } from '..';
-import SpanLength from '../SpanLength';
+import Span from '../Span';
 import SpanName from '../SpanName';
 import { getMetaDataFromSpanTree, getTopLeftFromBody } from '../utils';
 import {
@@ -19,6 +27,7 @@ import {
 	styles,
 	Wrapper,
 } from './styles';
+import { getIconStyles } from './utils';
 
 function Trace(props: TraceProps): JSX.Element {
 	const {
@@ -39,9 +48,11 @@ function Trace(props: TraceProps): JSX.Element {
 		isExpandAll,
 		intervalUnit,
 		children,
+		isMissing,
 	} = props;
 
-	const { isDarkMode } = useThemeMode();
+	const isDarkMode = useIsDarkMode();
+
 	const [isOpen, setOpen] = useState<boolean>(activeSpanPath[level] === id);
 
 	const localTreeExpandInteraction = useRef<boolean | 0>(0); // Boolean is for the state of the expansion whereas the number i.e. 0 is for skipping the user interaction.
@@ -68,7 +79,7 @@ function Trace(props: TraceProps): JSX.Element {
 
 	const ref = useRef<HTMLUListElement>(null);
 
-	React.useEffect(() => {
+	useEffect(() => {
 		if (activeSelectedId === id) {
 			ref.current?.scrollIntoView({
 				block: 'nearest',
@@ -94,7 +105,7 @@ function Trace(props: TraceProps): JSX.Element {
 		setActiveSelectedId(id);
 	};
 
-	const onClickTreeExpansion: React.MouseEventHandler<HTMLDivElement> = (
+	const onClickTreeExpansion: MouseEventHandler<HTMLDivElement> = (
 		event,
 	): void => {
 		event.stopPropagation();
@@ -109,6 +120,18 @@ function Trace(props: TraceProps): JSX.Element {
 	const nodeLeftOffset = ((startTime - globalStart) * 1e2) / globalSpread;
 	const width = (value * 1e2) / (globalSpread * 1e6);
 	const panelWidth = SPAN_DETAILS_LEFT_COL_WIDTH - level * (16 + 1) - 48;
+
+	const iconStyles = useMemo(() => getIconStyles(isDarkMode), [isDarkMode]);
+
+	const icon = useMemo(
+		() =>
+			isOpen ? (
+				<CaretDownFilled style={iconStyles} />
+			) : (
+				<CaretRightFilled style={iconStyles} />
+			),
+		[isOpen, iconStyles],
+	);
 
 	return (
 		<Wrapper
@@ -125,7 +148,7 @@ function Trace(props: TraceProps): JSX.Element {
 				isDarkMode={isDarkMode}
 			/>
 
-			<CardContainer onClick={onClick}>
+			<CardContainer isMissing={isMissing} onClick={onClick}>
 				<StyledCol flex={`${panelWidth}px`} styledclass={[styles.overFlowHidden]}>
 					<StyledRow styledclass={[styles.flexNoWrap]}>
 						<Col>
@@ -135,10 +158,8 @@ function Trace(props: TraceProps): JSX.Element {
 									isDarkMode={isDarkMode}
 									onClick={onClickTreeExpansion}
 								>
-									{totalSpans}
-									<CaretContainer>
-										{isOpen ? <CaretDownFilled /> : <CaretRightFilled />}
-									</CaretContainer>
+									<Typography style={{ wordBreak: 'normal' }}>{totalSpans}</Typography>
+									<CaretContainer>{icon}</CaretContainer>
 								</CardComponent>
 							)}
 						</Col>
@@ -148,7 +169,10 @@ function Trace(props: TraceProps): JSX.Element {
 					</StyledRow>
 				</StyledCol>
 				<Col flex="1">
-					<SpanLength
+					<Span
+						globalStart={globalStart}
+						startTime={startTime}
+						name={name}
 						leftOffset={nodeLeftOffset.toString()}
 						width={width.toString()}
 						bgColor={serviceColour}
@@ -174,6 +198,7 @@ function Trace(props: TraceProps): JSX.Element {
 							activeSpanPath={activeSpanPath}
 							isExpandAll={isExpandAll}
 							intervalUnit={intervalUnit}
+							isMissing={child.isMissing}
 						/>
 					))}
 				</>
@@ -182,6 +207,10 @@ function Trace(props: TraceProps): JSX.Element {
 	);
 }
 
+Trace.defaultProps = {
+	isMissing: false,
+};
+
 interface ITraceGlobal {
 	globalSpread: ITraceMetaData['spread'];
 	globalStart: ITraceMetaData['globalStart'];
@@ -189,13 +218,14 @@ interface ITraceGlobal {
 
 interface TraceProps extends ITraceTree, ITraceGlobal {
 	activeHoverId: string;
-	setActiveHoverId: React.Dispatch<React.SetStateAction<string>>;
-	setActiveSelectedId: React.Dispatch<React.SetStateAction<string>>;
+	setActiveHoverId: Dispatch<SetStateAction<string>>;
+	setActiveSelectedId: Dispatch<SetStateAction<string>>;
 	activeSelectedId: string;
 	level: number;
 	activeSpanPath: string[];
 	isExpandAll: boolean;
 	intervalUnit: IIntervalUnit;
+	isMissing?: boolean;
 }
 
 export default Trace;

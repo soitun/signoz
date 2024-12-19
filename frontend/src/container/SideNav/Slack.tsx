@@ -1,10 +1,12 @@
-import React from 'react';
-
-function Slack(): JSX.Element {
+interface ISlackProps {
+	width?: number | string;
+	height?: number | string;
+}
+function Slack({ width, height }: ISlackProps): JSX.Element {
 	return (
 		<svg
-			width="28"
-			height="28"
+			width={`${width}`}
+			height={`${height}`}
 			viewBox="0 0 28 28"
 			fill="none"
 			xmlns="http://www.w3.org/2000/svg"
@@ -44,5 +46,9 @@ function Slack(): JSX.Element {
 		</svg>
 	);
 }
+Slack.defaultProps = {
+	width: '1em',
+	height: '1em',
+};
 
 export default Slack;

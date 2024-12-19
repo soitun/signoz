@@ -6,9 +6,9 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
-	"go.signoz.io/query-service/constants"
-	"go.signoz.io/query-service/model"
-	"go.signoz.io/query-service/telemetry"
+	"go.signoz.io/signoz/pkg/query-service/constants"
+	"go.signoz.io/signoz/pkg/query-service/model"
+	"go.signoz.io/signoz/pkg/query-service/telemetry"
 	"go.uber.org/zap"
 )
 
@@ -68,11 +68,29 @@ func InitDB(dataSourceName string) (*ModelDaoSqlite, error) {
 			token TEXT NOT NULL,
 			FOREIGN KEY(user_id) REFERENCES users(id)
 		);
+		CREATE TABLE IF NOT EXISTS user_flags (
+			user_id TEXT PRIMARY KEY,
+			flags TEXT,
+			FOREIGN KEY(user_id) REFERENCES users(id)
+		);
+		CREATE TABLE IF NOT EXISTS apdex_settings (
+			service_name TEXT PRIMARY KEY,
+			threshold FLOAT NOT NULL,
+			exclude_status_codes TEXT NOT NULL
+		);
+		CREATE TABLE IF NOT EXISTS ingestion_keys (
+			key_id TEXT PRIMARY KEY,
+			name TEXT,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			ingestion_key TEXT NOT NULL,
+			ingestion_url TEXT NOT NULL,
+			data_region TEXT NOT NULL
+		);
 	`
 
 	_, err = db.Exec(table_schema)
 	if err != nil {
-		return nil, fmt.Errorf("Error in creating tables: %v", err.Error())
+		return nil, fmt.Errorf("error in creating tables: %v", err.Error())
 	}
 
 	mds := &ModelDaoSqlite{db: db}
@@ -85,7 +103,16 @@ func InitDB(dataSourceName string) (*ModelDaoSqlite, error) {
 		return nil, err
 	}
 
+	telemetry.GetInstance().SetUserCountCallback(mds.GetUserCount)
+	telemetry.GetInstance().SetUserRoleCallback(mds.GetUserRole)
+	telemetry.GetInstance().SetGetUsersCallback(mds.GetUsers)
+
 	return mds, nil
+}
+
+// DB returns database connection
+func (mds *ModelDaoSqlite) DB() *sqlx.DB {
+	return mds.db
 }
 
 // initializeOrgPreferences initializes in-memory telemetry settings. It is planned to have
@@ -114,6 +141,13 @@ func (mds *ModelDaoSqlite) initializeOrgPreferences(ctx context.Context) error {
 
 	// set telemetry fields from userPreferences
 	telemetry.GetInstance().SetDistinctId(org.Id)
+
+	users, _ := mds.GetUsers(ctx)
+	countUsers := len(users)
+	if countUsers > 0 {
+		telemetry.GetInstance().SetCompanyDomain(users[countUsers-1].Email)
+		telemetry.GetInstance().SetUserEmail(users[countUsers-1].Email)
+	}
 
 	return nil
 }
@@ -149,7 +183,7 @@ func (mds *ModelDaoSqlite) createGroupIfNotPresent(ctx context.Context,
 		return group, nil
 	}
 
-	zap.S().Debugf("%s is not found, creating it", name)
+	zap.L().Debug("group is not found, creating it", zap.String("group_name", name))
 	group, cErr := mds.CreateGroup(ctx, &model.Group{Name: name})
 	if cErr != nil {
 		return nil, cErr.Err

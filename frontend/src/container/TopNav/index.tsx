@@ -1,55 +1,61 @@
-import { Col } from 'antd';
+import { Col, Row, Space } from 'antd';
 import ROUTES from 'constants/routes';
-import history from 'lib/history';
-import React from 'react';
-import { matchPath } from 'react-router-dom';
+import { useMemo } from 'react';
+import { matchPath, useHistory } from 'react-router-dom';
 
-import ShowBreadcrumbs from './Breadcrumbs';
-import DateTimeSelector from './DateTimeSelection';
-import { Container } from './styles';
-
-const routesToSkip = [
-	ROUTES.SETTINGS,
-	ROUTES.LIST_ALL_ALERT,
-	ROUTES.TRACE_DETAIL,
-	ROUTES.ALL_CHANNELS,
-	ROUTES.USAGE_EXPLORER,
-	ROUTES.INSTRUMENTATION,
-	ROUTES.VERSION,
-	ROUTES.ALL_DASHBOARD,
-	ROUTES.ORG_SETTINGS,
-	ROUTES.ERROR_DETAIL,
-];
+import NewExplorerCTA from '../NewExplorerCTA';
+import DateTimeSelector from './DateTimeSelectionV2';
+import { routesToDisable, routesToSkip } from './DateTimeSelectionV2/config';
 
 function TopNav(): JSX.Element | null {
-	if (history.location.pathname === ROUTES.SIGN_UP) {
+	const { location } = useHistory();
+
+	const isRouteToSkip = useMemo(
+		() =>
+			routesToSkip.some((route) =>
+				matchPath(location.pathname, { path: route, exact: true }),
+			),
+		[location.pathname],
+	);
+
+	const isDisabled = useMemo(
+		() =>
+			routesToDisable.some((route) =>
+				matchPath(location.pathname, { path: route, exact: true }),
+			),
+		[location.pathname],
+	);
+
+	const isSignUpPage = useMemo(
+		() => matchPath(location.pathname, { path: ROUTES.SIGN_UP, exact: true }),
+		[location.pathname],
+	);
+
+	const isNewAlertsLandingPage = useMemo(
+		() =>
+			matchPath(location.pathname, { path: ROUTES.ALERTS_NEW, exact: true }) &&
+			!location.search,
+		[location.pathname, location.search],
+	);
+
+	if (isSignUpPage || isDisabled || isRouteToSkip || isNewAlertsLandingPage) {
 		return null;
 	}
 
-	const checkRouteExists = (currentPath: string): boolean => {
-		for (let i = 0; i < routesToSkip.length; i += 1) {
-			if (
-				matchPath(currentPath, { path: routesToSkip[i], exact: true, strict: true })
-			) {
-				return true;
-			}
-		}
-		return false;
-	};
-
-	return (
-		<Container>
-			<Col span={16}>
-				<ShowBreadcrumbs />
+	return !isRouteToSkip ? (
+		<Row style={{ marginBottom: '1rem' }}>
+			<Col span={24} style={{ marginTop: '1rem' }}>
+				<Row justify="end">
+					<Space align="center" size={16} direction="horizontal">
+						<NewExplorerCTA />
+						<div>
+							<DateTimeSelector showAutoRefresh />
+						</div>
+					</Space>
+				</Row>
 			</Col>
-
-			{!checkRouteExists(history.location.pathname) && (
-				<Col span={8}>
-					<DateTimeSelector />
-				</Col>
-			)}
-		</Container>
-	);
+		</Row>
+	) : null;
 }
 
 export default TopNav;

@@ -37,7 +37,7 @@ is_mac() {
 }
 
 is_arm64(){
-    [[ `uname -m` == 'arm64' ]]
+    [[ `uname -m` == 'arm64' || `uname -m` == 'aarch64' ]]
 }
 
 check_os() {
@@ -48,10 +48,20 @@ check_os() {
         return
     fi
 
+    if is_arm64; then
+        arch="arm64"
+        arch_official="aarch64"
+    else
+        arch="amd64"
+        arch_official="x86_64"
+    fi
+
+    platform=$(uname -s | tr '[:upper:]' '[:lower:]')
+
     os_name="$(cat /etc/*-release | awk -F= '$1 == "NAME" { gsub(/"/, ""); print $2; exit }')"
 
     case "$os_name" in
-        Ubuntu*)
+        Ubuntu*|Pop!_OS)
             desired_os=1
             os="ubuntu"
             package_manager="apt-get"
@@ -77,6 +87,11 @@ check_os() {
             package_manager="yum"
             ;;
         CentOS*)
+            desired_os=1
+            os="centos"
+            package_manager="yum"
+            ;;
+        Rocky*)
             desired_os=1
             os="centos"
             package_manager="yum"
@@ -120,7 +135,7 @@ check_ports_occupied() {
 
         echo "+++++++++++ ERROR ++++++++++++++++++++++"
         echo "SigNoz requires ports 3301 & 4317 to be open. Please shut down any other service(s) that may be running on these ports."
-        echo "You can run SigNoz on another port following this guide https://signoz.io/docs/deployment/docker#troubleshooting"
+        echo "You can run SigNoz on another port following this guide https://signoz.io/docs/install/troubleshooting/"
         echo "++++++++++++++++++++++++++++++++++++++++"
         echo ""
         exit 1
@@ -138,7 +153,7 @@ install_docker() {
         $apt_cmd install software-properties-common gnupg-agent
         curl -fsSL "https://download.docker.com/linux/$os/gpg" | $sudo_cmd apt-key add -
         $sudo_cmd add-apt-repository \
-            "deb [arch=amd64] https://download.docker.com/linux/$os $(lsb_release -cs) stable"
+            "deb [arch=$arch] https://download.docker.com/linux/$os $(lsb_release -cs) stable"
         $apt_cmd update
         echo "Installing docker"
         $apt_cmd install docker-ce docker-ce-cli containerd.io
@@ -173,12 +188,20 @@ install_docker() {
 
 }
 
+compose_version () {
+    local compose_version
+    compose_version="$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep 'tag_name' | cut -d\" -f4)"
+    echo "${compose_version:-v2.18.1}"
+}
+
 install_docker_compose() {
     if [[ $package_manager == "apt-get" || $package_manager == "zypper" || $package_manager == "yum" ]]; then
         if [[ ! -f /usr/bin/docker-compose ]];then
             echo "++++++++++++++++++++++++"
             echo "Installing docker-compose"
-            $sudo_cmd curl -L "https://github.com/docker/compose/releases/download/1.26.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+            compose_url="https://github.com/docker/compose/releases/download/$(compose_version)/docker-compose-$platform-$arch_official"
+            echo "Downloading docker-compose from $compose_url"
+            $sudo_cmd curl -L "$compose_url" -o /usr/local/bin/docker-compose
             $sudo_cmd chmod +x /usr/local/bin/docker-compose
             $sudo_cmd ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
             echo "docker-compose installed!"
@@ -204,9 +227,14 @@ start_docker() {
             echo "Starting docker service"
             $sudo_cmd systemctl start docker.service
         fi
+        # if [[ -z $sudo_cmd ]]; then
+        #     docker ps > /dev/null && true
+        #     if [[ $? -ne 0 ]]; then
+        #         request_sudo
+        #     fi
+        # fi
         if [[ -z $sudo_cmd ]]; then
-            docker ps > /dev/null && true
-            if [[ $? -ne 0 ]]; then
+            if ! docker ps > /dev/null && true; then
                 request_sudo
             fi
         fi
@@ -218,7 +246,7 @@ wait_for_containers_start() {
 
     # The while loop is important because for-loops don't work for dynamic values
     while [[ $timeout -gt 0 ]]; do
-        status_code="$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3301/api/v1/services/list || true)"
+        status_code="$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:3301/api/v1/health?live=1" || true)"
         if [[ status_code -eq 200 ]]; then
             break
         else
@@ -237,13 +265,9 @@ bye() {  # Prints a friendly good bye message and exits the script.
 
         echo "🔴 The containers didn't seem to start correctly. Please run the following command to check containers that may have errored out:"
         echo ""
-        if is_arm64; then
-            echo -e "$sudo_cmd docker-compose -f ./docker/clickhouse-setup/docker-compose.arm.yaml ps -a"
-        else
-            echo -e "$sudo_cmd docker-compose -f ./docker/clickhouse-setup/docker-compose.yaml ps -a"
-        fi
+        echo -e "$sudo_cmd docker-compose -f ./docker/clickhouse-setup/docker-compose.yaml ps -a"
 
-        # echo "Please read our troubleshooting guide https://signoz.io/docs/deployment/docker#troubleshooting"
+        echo "Please read our troubleshooting guide https://signoz.io/docs/install/troubleshooting/"
         echo "or reach us for support in #help channel in our Slack Community https://signoz.io/slack"
         echo "++++++++++++++++++++++++++++++++++++++++"
 
@@ -271,9 +295,13 @@ request_sudo() {
         echo -e "\n\n🙇 We will need sudo access to complete the installation."
         if (( $EUID != 0 )); then
             sudo_cmd="sudo"
-            echo -e "Please enter your sudo password, if prompt."
-            $sudo_cmd -l | grep -e "NOPASSWD: ALL" > /dev/null
-            if [[ $? -ne 0 ]] && ! $sudo_cmd -v; then
+            echo -e "Please enter your sudo password, if prompted."
+            # $sudo_cmd -l | grep -e "NOPASSWD: ALL" > /dev/null
+            # if [[ $? -ne 0 ]] && ! $sudo_cmd -v; then
+            #     echo "Need sudo privileges to proceed with the installation."
+            #     exit 1;
+            # fi
+            if ! $sudo_cmd -l | grep -e "NOPASSWD: ALL" > /dev/null && ! $sudo_cmd -v; then
                 echo "Need sudo privileges to proceed with the installation."
                 exit 1;
             fi
@@ -307,8 +335,13 @@ echo -e "🌏 Detecting your OS ...\n"
 check_os
 
 # Obtain unique installation id
-sysinfo="$(uname -a)"
-if [[ $? -ne 0 ]]; then
+# sysinfo="$(uname -a)"
+# if [[ $? -ne 0 ]]; then
+#     uuid="$(uuidgen)"
+#     uuid="${uuid:-$(cat /proc/sys/kernel/random/uuid)}"
+#     sysinfo="${uuid:-$(cat /proc/sys/kernel/random/uuid)}"
+# fi
+if ! sysinfo="$(uname -a)"; then
     uuid="$(uuidgen)"
     uuid="${uuid:-$(cat /proc/sys/kernel/random/uuid)}"
     sysinfo="${uuid:-$(cat /proc/sys/kernel/random/uuid)}"
@@ -356,7 +389,7 @@ trap bye EXIT
 
 URL="https://api.segment.io/v1/track"
 HEADER_1="Content-Type: application/json"
-HEADER_2="Authorization: Basic NEdtb2E0aXhKQVVIeDJCcEp4c2p3QTFiRWZud0VlUno6"
+HEADER_2="Authorization: Basic OWtScko3b1BDR1BFSkxGNlFqTVBMdDVibGpGaFJRQnI="
 
 send_event() {
     error=""
@@ -466,22 +499,14 @@ start_docker
 
 echo ""
 echo -e "\n🟡 Pulling the latest container images for SigNoz.\n"
-if is_arm64; then
-    $sudo_cmd docker-compose -f ./docker/clickhouse-setup/docker-compose.arm.yaml pull
-else
-    $sudo_cmd docker-compose -f ./docker/clickhouse-setup/docker-compose.yaml pull
-fi
+$sudo_cmd docker-compose -f ./docker/clickhouse-setup/docker-compose.yaml pull
 
 echo ""
 echo "🟡 Starting the SigNoz containers. It may take a few minutes ..."
 echo
 # The docker-compose command does some nasty stuff for the `--detach` functionality. So we add a `|| true` so that the
 # script doesn't exit because this command looks like it failed to do it's thing.
-if is_arm64; then
-    $sudo_cmd docker-compose -f ./docker/clickhouse-setup/docker-compose.arm.yaml up --detach --remove-orphans || true
-else
-    $sudo_cmd docker-compose -f ./docker/clickhouse-setup/docker-compose.yaml up --detach --remove-orphans || true
-fi
+$sudo_cmd docker-compose -f ./docker/clickhouse-setup/docker-compose.yaml up --detach --remove-orphans || true
 
 wait_for_containers_start 60
 echo ""
@@ -493,7 +518,7 @@ if [[ $status_code -ne 200 ]]; then
 
     echo -e "$sudo_cmd docker-compose -f ./docker/clickhouse-setup/docker-compose.yaml ps -a"
 
-    echo "Please read our troubleshooting guide https://signoz.io/docs/deployment/docker/#troubleshooting-of-common-issues"
+    echo "Please read our troubleshooting guide https://signoz.io/docs/install/troubleshooting/"
     echo "or reach us on SigNoz for support https://signoz.io/slack"
     echo "++++++++++++++++++++++++++++++++++++++++"
 
@@ -509,17 +534,15 @@ else
     echo ""
     echo -e "🟢 Your frontend is running on http://localhost:3301"
     echo ""
+    echo "ℹ️  By default, retention period is set to 15 days for logs and traces, and 30 days for metrics." 
+    echo -e "To change this, navigate to the General tab on the Settings page of SigNoz UI. For more details, refer to https://signoz.io/docs/userguide/retention-period \n"
 
-    if is_arm64; then
-        echo "ℹ️  To bring down SigNoz and clean volumes : $sudo_cmd docker-compose -f ./docker/clickhouse-setup/docker-compose.arm.yaml down -v"
-    else
-        echo "ℹ️  To bring down SigNoz and clean volumes : $sudo_cmd docker-compose -f ./docker/clickhouse-setup/docker-compose.yaml down -v"
-    fi
+    echo "ℹ️  To bring down SigNoz and clean volumes : $sudo_cmd docker-compose -f ./docker/clickhouse-setup/docker-compose.yaml down -v"
 
     echo ""
     echo "+++++++++++++++++++++++++++++++++++++++++++++++++"
     echo ""
-    echo "👉 Need help Getting Started?"
+    echo "👉 Need help in Getting Started?"
     echo -e "Join us on Slack https://signoz.io/slack"
     echo ""
     echo -e "\n📨 Please share your email to receive support & updates about SigNoz!"

@@ -1,5 +1,3 @@
-import { resourceAttributesQueryToPromQL } from 'lib/resourceAttributes';
-import { GetResourceAttributeQueriesFromURL } from 'store/actions/metrics/setResourceAttributeQueries';
 import {
 	GET_INITIAL_APPLICATION_ERROR,
 	GET_INITIAL_APPLICATION_LOADING,
@@ -9,11 +7,10 @@ import {
 	GET_SERVICE_LIST_SUCCESS,
 	MetricsActions,
 	RESET_INITIAL_APPLICATION_DATA,
-	SET_RESOURCE_ATTRIBUTE_QUERIES,
 } from 'types/actions/metrics';
 import InitialValueTypes from 'types/reducer/metrics';
 
-const InitialValue: InitialValueTypes = {
+export const InitialValue: InitialValueTypes = {
 	error: false,
 	errorMessage: '',
 	loading: true,
@@ -21,14 +18,11 @@ const InitialValue: InitialValueTypes = {
 	services: [],
 	dbOverView: [],
 	externalService: [],
-	topEndPoints: [],
+	topOperations: [],
 	externalAverageDuration: [],
 	externalError: [],
 	serviceOverview: [],
-	resourceAttributeQueries: GetResourceAttributeQueriesFromURL() || [],
-	resourceAttributePromQLQuery: resourceAttributesQueryToPromQL(
-		GetResourceAttributeQueriesFromURL() || [],
-	),
+	topLevelOperations: [],
 };
 
 const metrics = (
@@ -88,31 +82,24 @@ const metrics = (
 		case GET_INTIAL_APPLICATION_DATA: {
 			const {
 				// dbOverView,
-				topEndPoints,
+				topOperations,
 				serviceOverview,
 				// externalService,
 				// externalAverageDuration,
 				// externalError,
+				topLevelOperations,
 			} = action.payload;
 
 			return {
 				...state,
 				// dbOverView,
-				topEndPoints,
+				topOperations,
 				serviceOverview,
 				// externalService,
 				// externalAverageDuration,
 				// externalError,
 				metricsApplicationLoading: false,
-			};
-		}
-
-		case SET_RESOURCE_ATTRIBUTE_QUERIES: {
-			const { queries, promQLQuery } = action.payload;
-			return {
-				...state,
-				resourceAttributeQueries: queries,
-				resourceAttributePromQLQuery: promQLQuery,
+				topLevelOperations,
 			};
 		}
 

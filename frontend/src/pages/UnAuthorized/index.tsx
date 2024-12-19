@@ -2,7 +2,6 @@ import { Space, Typography } from 'antd';
 import UnAuthorized from 'assets/UnAuthorized';
 import { Button, Container } from 'components/NotFound/styles';
 import ROUTES from 'constants/routes';
-import React from 'react';
 
 function UnAuthorizePage(): JSX.Element {
 	return (
@@ -13,7 +12,7 @@ function UnAuthorizePage(): JSX.Element {
 					Oops.. you don&apos;t have permission to view this page
 				</Typography.Title>
 				<Button to={ROUTES.APPLICATION} tabIndex={0}>
-					Return To Metrics Page
+					Return To Services Page
 				</Button>
 			</Space>
 		</Container>

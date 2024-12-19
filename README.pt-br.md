@@ -5,7 +5,6 @@
 </p>
 
 <p align="center">
-    <img alt="License" src="https://img.shields.io/badge/license-MIT-brightgreen"> </a>
     <img alt="Downloads" src="https://img.shields.io/docker/pulls/signoz/frontend?label=Downloads"> </a>
     <img alt="GitHub issues" src="https://img.shields.io/github/issues/signoz/signoz"> </a>
     <a href="https://twitter.com/intent/tweet?text=Monitor%20your%20applications%20and%20troubleshoot%20problems%20with%20SigNoz,%20an%20open-source%20alternative%20to%20DataDog,%20NewRelic.&url=https://signoz.io/&via=SigNozHQ&hashtags=opensource,signoz,observability"> 
@@ -85,9 +84,9 @@ Você pode encontrar a lista completa de linguagens aqui - https://opentelemetry
   
 ### Implantar usando Docker
 
-Siga as etapas listadas [aqui](https://signoz.io/docs/deployment/docker/) para instalar usando o Docker.
+Siga as etapas listadas [aqui](https://signoz.io/docs/install/docker/) para instalar usando o Docker.
 
-Esse [guia para solução de problemas](https://signoz.io/docs/deployment/troubleshooting) pode ser útil se você enfrentar quaisquer problemas. 
+Esse [guia para solução de problemas](https://signoz.io/docs/install/troubleshooting/) pode ser útil se você enfrentar quaisquer problemas. 
 
 <p>&nbsp  </p>
   

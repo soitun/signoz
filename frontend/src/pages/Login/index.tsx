@@ -3,7 +3,7 @@ import getUserVersion from 'api/user/getVersion';
 import Spinner from 'components/Spinner';
 import WelcomeLeftContainer from 'components/WelcomeLeftContainer';
 import LoginContainer from 'container/Login';
-import React from 'react';
+import useURLQuery from 'hooks/useUrlQuery';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from 'react-query';
 import { useSelector } from 'react-redux';
@@ -14,9 +14,16 @@ function Login(): JSX.Element {
 	const { isLoggedIn } = useSelector<AppState, AppReducer>((state) => state.app);
 	const { t } = useTranslation();
 
+	const urlQueryParams = useURLQuery();
+	const jwt = urlQueryParams.get('jwt') || '';
+	const refreshJwt = urlQueryParams.get('refreshjwt') || '';
+	const userId = urlQueryParams.get('usr') || '';
+	const ssoerror = urlQueryParams.get('ssoerror') || '';
+	const withPassword = urlQueryParams.get('password') || '';
+
 	const versionResult = useQuery({
 		queryFn: getUserVersion,
-		queryKey: 'getUserVersion',
+		queryKey: ['getUserVersion', jwt],
 		enabled: !isLoggedIn,
 	});
 
@@ -42,7 +49,13 @@ function Login(): JSX.Element {
 
 	return (
 		<WelcomeLeftContainer version={version}>
-			<LoginContainer />
+			<LoginContainer
+				ssoerror={ssoerror}
+				jwt={jwt}
+				refreshjwt={refreshJwt}
+				userId={userId}
+				withPassword={withPassword}
+			/>
 		</WelcomeLeftContainer>
 	);
 }

@@ -1,23 +1,27 @@
 import { PlusOutlined } from '@ant-design/icons';
-import { Typography } from 'antd';
+import { Tooltip, Typography } from 'antd';
 import getAll from 'api/channels/getAll';
+import logEvent from 'api/common/logEvent';
 import Spinner from 'components/Spinner';
 import TextToolTip from 'components/TextToolTip';
 import ROUTES from 'constants/routes';
 import useComponentPermission from 'hooks/useComponentPermission';
 import useFetch from 'hooks/useFetch';
 import history from 'lib/history';
-import React, { useCallback } from 'react';
+import { isUndefined } from 'lodash-es';
+import { useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
 import { AppState } from 'store/reducers';
 import AppReducer from 'types/reducer/app';
 
 import AlertChannelsComponent from './AlertChannels';
-import { Button, ButtonContainer } from './styles';
+import { Button, ButtonContainer, RightActionContainer } from './styles';
 
 const { Paragraph } = Typography;
 
 function AlertChannels(): JSX.Element {
+	const { t } = useTranslation(['channels']);
 	const { role } = useSelector<AppState, AppReducer>((state) => state.app);
 	const [addNewChannelPermission] = useComponentPermission(
 		['add_new_channel'],
@@ -29,33 +33,51 @@ function AlertChannels(): JSX.Element {
 
 	const { loading, payload, error, errorMessage } = useFetch(getAll);
 
+	useEffect(() => {
+		if (!isUndefined(payload)) {
+			logEvent('Alert Channel: Channel list page visited', {
+				number: payload?.length,
+			});
+		}
+	}, [payload]);
+
 	if (error) {
 		return <Typography>{errorMessage}</Typography>;
 	}
 
 	if (loading || payload === undefined) {
-		return <Spinner tip="Loading Channels.." height="90vh" />;
+		return <Spinner tip={t('loading_channels_message')} height="90vh" />;
 	}
 
 	return (
 		<>
 			<ButtonContainer>
 				<Paragraph ellipsis type="secondary">
-					The latest added channel is used as the default channel for sending alerts
+					{t('sending_channels_note')}
 				</Paragraph>
 
-				<div>
+				<RightActionContainer>
 					<TextToolTip
-						text="More details on how to setting notification channels"
+						text={t('tooltip_notification_channels')}
 						url="https://signoz.io/docs/userguide/alerts-management/#setting-notification-channel"
 					/>
 
-					{addNewChannelPermission && (
-						<Button onClick={onToggleHandler} icon={<PlusOutlined />}>
-							New Alert Channel
+					<Tooltip
+						title={
+							!addNewChannelPermission
+								? 'Ask an admin to create alert channel'
+								: undefined
+						}
+					>
+						<Button
+							onClick={onToggleHandler}
+							icon={<PlusOutlined />}
+							disabled={!addNewChannelPermission}
+						>
+							{t('button_new_channel')}
 						</Button>
-					)}
-				</div>
+					</Tooltip>
+				</RightActionContainer>
 			</ButtonContainer>
 
 			<AlertChannelsComponent allChannels={payload} />

@@ -19,9 +19,7 @@ export const convertQueriesToURLQuery = (
 
 export const convertURLQueryStringToQuery = (
 	queryString: string,
-): IQueryStructure[] => {
-	return JSON.parse(decode(queryString));
-};
+): IQueryStructure[] => JSON.parse(decode(queryString));
 
 export const resolveOperator = (
 	result: unknown,
@@ -42,6 +40,8 @@ export const executeSearchQueries = (
 	if (!searchData.length || !queries.length) {
 		return searchData;
 	}
+	const escapeRegExp = (regExp: string): string =>
+		regExp.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 	queries.forEach((query: IQueryStructure) => {
 		const { operator } = query;
@@ -61,7 +61,7 @@ export const executeSearchQueries = (
 				for (const searchSpaceItem of searchSpace) {
 					if (searchSpaceItem)
 						for (const queryValue of value) {
-							if (searchSpaceItem.match(queryValue)) {
+							if (searchSpaceItem.match(escapeRegExp(queryValue))) {
 								return resolveOperator(true, operator);
 							}
 						}
@@ -136,6 +136,8 @@ export function OptionsValueResolution(
 			options: uniqWith(
 				map(
 					flattenDeep(
+						// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+						// @ts-ignore
 						map(searchData, (searchItem) => searchItem.data.tags).filter(Boolean),
 					),
 					(tag) => ({ name: tag }),

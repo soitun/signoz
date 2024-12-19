@@ -1,10 +1,14 @@
-import { Button } from 'antd';
-import { NotificationInstance } from 'antd/lib/notification/index';
+import { NotificationInstance } from 'antd/es/notification/interface';
 import deleteAlerts from 'api/alerts/delete';
 import { State } from 'hooks/useFetch';
-import React, { useState } from 'react';
+import { Dispatch, SetStateAction, useState } from 'react';
+import { useSelector } from 'react-redux';
+import { AppState } from 'store/reducers';
 import { PayloadProps as DeleteAlertPayloadProps } from 'types/api/alerts/delete';
-import { Alerts } from 'types/api/alerts/getAll';
+import { GettableAlert } from 'types/api/alerts/get';
+import AppReducer from 'types/reducer/app';
+
+import { ColumnButton } from './styles';
 
 function DeleteAlert({
 	id,
@@ -21,15 +25,14 @@ function DeleteAlert({
 		payload: undefined,
 	});
 
+	const { featureResponse } = useSelector<AppState, AppReducer>(
+		(state) => state.app,
+	);
+
 	const defaultErrorMessage = 'Something went wrong';
 
 	const onDeleteHandler = async (id: number): Promise<void> => {
 		try {
-			setDeleteAlertState((state) => ({
-				...state,
-				loading: true,
-			}));
-
 			const response = await deleteAlerts({
 				id,
 			});
@@ -71,21 +74,42 @@ function DeleteAlert({
 		}
 	};
 
+	const onClickHandler = (): void => {
+		setDeleteAlertState((state) => ({
+			...state,
+			loading: true,
+		}));
+		featureResponse
+			.refetch()
+			.then(() => {
+				onDeleteHandler(id);
+			})
+			.catch(() => {
+				setDeleteAlertState((state) => ({
+					...state,
+					loading: false,
+				}));
+				notifications.error({
+					message: defaultErrorMessage,
+				});
+			});
+	};
+
 	return (
-		<Button
+		<ColumnButton
 			disabled={deleteAlertState.loading || false}
 			loading={deleteAlertState.loading || false}
-			onClick={(): Promise<void> => onDeleteHandler(id)}
+			onClick={onClickHandler}
 			type="link"
 		>
 			Delete
-		</Button>
+		</ColumnButton>
 	);
 }
 
 interface DeleteAlertProps {
-	id: Alerts['id'];
-	setData: React.Dispatch<React.SetStateAction<Alerts[]>>;
+	id: GettableAlert['id'];
+	setData: Dispatch<SetStateAction<GettableAlert[]>>;
 	notifications: NotificationInstance;
 }
 

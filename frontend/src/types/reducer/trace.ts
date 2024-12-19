@@ -32,6 +32,8 @@ export interface TraceReducer {
 		payload: PayloadProps;
 	};
 	yAxisUnit: string | undefined;
+	filterDisplayValue: Map<TraceFilterEnum, number>;
+	spanKind?: string;
 }
 
 interface SpansAggregateData {
@@ -46,45 +48,49 @@ interface SpansAggregateData {
 }
 
 export interface Tags {
-	Key: string[];
-	Operator: OperatorValues;
-	Values: string[];
-}
-
-export interface TagsAPI {
 	Key: string;
 	Operator: OperatorValues;
-	Values: string[];
+	StringValues: string[];
+	NumberValues: number[];
+	BoolValues: boolean[];
 }
-export type OperatorValues = 'not in' | 'in';
+
+export type OperatorValues =
+	| 'NotIn'
+	| 'In'
+	| 'Equals'
+	| 'NotEquals'
+	| 'Contains'
+	| 'NotContains'
+	| 'GreaterThan'
+	| 'Exists'
+	| 'NotExists'
+	| 'LessThan'
+	| 'GreaterThanEquals'
+	| 'LessThanEquals'
+	| 'StartsWith'
+	| 'NotStartsWith';
 
 export type TraceFilterEnum =
-	| 'component'
 	| 'duration'
-	| 'httpCode'
 	| 'httpHost'
 	| 'httpMethod'
 	| 'httpRoute'
 	| 'httpUrl'
 	| 'operation'
 	| 'serviceName'
-	| 'status';
+	| 'status'
+	| 'responseStatusCode'
+	| 'rpcMethod'
+	| 'traceID';
 
 export const AllPanelHeading: {
 	key: TraceFilterEnum;
 	displayValue: string;
 }[] = [
 	{
-		displayValue: 'Component',
-		key: 'component',
-	},
-	{
 		key: 'duration',
 		displayValue: 'Duration',
-	},
-	{
-		displayValue: 'HTTP Code',
-		key: 'httpCode',
 	},
 	{
 		key: 'httpHost',
@@ -107,11 +113,23 @@ export const AllPanelHeading: {
 		displayValue: 'Operation',
 	},
 	{
+		key: 'responseStatusCode',
+		displayValue: 'Status Code',
+	},
+	{
+		key: 'rpcMethod',
+		displayValue: 'RPC Method',
+	},
+	{
 		key: 'serviceName',
 		displayValue: 'Service Name',
 	},
 	{
 		key: 'status',
 		displayValue: 'Status',
+	},
+	{
+		key: 'traceID',
+		displayValue: 'Trace ID',
 	},
 ];

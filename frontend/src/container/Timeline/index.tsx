@@ -1,8 +1,8 @@
 import { StyledDiv } from 'components/Styled';
 import { ITraceMetaData } from 'container/GantChart';
 import { IIntervalUnit, INTERVAL_UNITS } from 'container/TraceDetail/utils';
-import useThemeMode from 'hooks/useThemeMode';
-import React, { useEffect, useRef, useState } from 'react';
+import { useIsDarkMode } from 'hooks/useDarkMode';
+import { Dispatch, SetStateAction, useEffect, useState } from 'react';
 import { useMeasure } from 'react-use';
 
 import { styles, Svg, TimelineInterval } from './styles';
@@ -18,11 +18,7 @@ function Timeline({
 	setIntervalUnit,
 }: TimelineProps): JSX.Element {
 	const [ref, { width }] = useMeasure<HTMLDivElement>();
-	const { isDarkMode } = useThemeMode();
-
-	const asd = useRef('');
-
-	asd.current = '1';
+	const isDarkMode = useIsDarkMode();
 
 	const [intervals, setIntervals] = useState<Interval[] | null>(null);
 
@@ -80,7 +76,11 @@ function Timeline({
 							},0)`}
 							key={`${interval.label + interval.percentage + index}`}
 						>
-							<text y={13} fill={isDarkMode ? 'white' : 'black'}>
+							<text
+								y={13}
+								x={index === intervals.length - 1 ? -10 : 0}
+								fill={isDarkMode ? 'white' : 'black'}
+							>
 								{interval.label}
 							</text>
 							<line
@@ -105,7 +105,7 @@ interface TimelineProps {
 		levels: number;
 	};
 	globalTraceMetadata: ITraceMetaData;
-	setIntervalUnit: React.Dispatch<React.SetStateAction<IIntervalUnit>>;
+	setIntervalUnit: Dispatch<SetStateAction<IIntervalUnit>>;
 }
 
 export default Timeline;

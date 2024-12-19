@@ -1,19 +1,27 @@
-import { ApiV2Instance as axios } from 'api';
+import { ApiV3Instance as axios } from 'api';
 import { ErrorResponseHandler } from 'api/ErrorResponseHandler';
 import { AxiosError } from 'axios';
+import createQueryParams from 'lib/createQueryParams';
 import { ErrorResponse, SuccessResponse } from 'types/api';
 import {
+	TagKeyProps,
 	TagKeysPayloadProps,
 	TagValueProps,
 	TagValuesPayloadProps,
 } from 'types/api/metrics/getResourceAttributes';
+import { DataSource, MetricAggregateOperator } from 'types/common/queryBuilder';
 
-export const getResourceAttributesTagKeys = async (): Promise<
-	SuccessResponse<TagKeysPayloadProps> | ErrorResponse
-> => {
+export const getResourceAttributesTagKeys = async (
+	props: TagKeyProps,
+): Promise<SuccessResponse<TagKeysPayloadProps> | ErrorResponse> => {
 	try {
 		const response = await axios.get(
-			'/metrics/autocomplete/tagKey?metricName=signoz_calls_total&match=resource_',
+			`/autocomplete/attribute_keys?${createQueryParams({
+				aggregateOperator: MetricAggregateOperator.RATE,
+				searchText: props.match,
+				dataSource: DataSource.METRICS,
+				aggregateAttribute: props.metricName,
+			})}`,
 		);
 
 		return {
@@ -32,7 +40,13 @@ export const getResourceAttributesTagValues = async (
 ): Promise<SuccessResponse<TagValuesPayloadProps> | ErrorResponse> => {
 	try {
 		const response = await axios.get(
-			`/metrics/autocomplete/tagValue?metricName=signoz_calls_total&tagKey=${props}`,
+			`/autocomplete/attribute_values?${createQueryParams({
+				aggregateOperator: MetricAggregateOperator.RATE,
+				dataSource: DataSource.METRICS,
+				aggregateAttribute: props.metricName,
+				attributeKey: props.tagKey,
+				searchText: '',
+			})}`,
 		);
 
 		return {

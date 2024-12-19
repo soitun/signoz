@@ -1,8 +1,14 @@
 /* eslint-disable react/no-unstable-nested-components */
 import Color from 'color';
 import { ITraceMetaData } from 'container/GantChart';
-import useThemeMode from 'hooks/useThemeMode';
-import React, { useLayoutEffect, useMemo, useState } from 'react';
+import { useIsDarkMode } from 'hooks/useDarkMode';
+import {
+	Dispatch,
+	SetStateAction,
+	useLayoutEffect,
+	useMemo,
+	useState,
+} from 'react';
 import { ITraceTree } from 'types/api/trace/getTraceItem';
 
 import {
@@ -18,7 +24,7 @@ interface SpanItemProps {
 	spanData: ITraceTree;
 	tooltipText: string;
 	onSpanSelect: (id: string) => void;
-	onSpanHover: React.Dispatch<React.SetStateAction<string>>;
+	onSpanHover: Dispatch<SetStateAction<string>>;
 	hoveredSpanId: string;
 	selectedSpanId: string;
 }
@@ -37,7 +43,7 @@ function SpanItem({
 	const { serviceColour } = spanData;
 	const [isSelected, setIsSelected] = useState<boolean>(false);
 	// const [isLocalHover, setIsLocalHover] = useState<boolean>(false);
-	const { isDarkMode } = useThemeMode();
+	const isDarkMode = useIsDarkMode();
 
 	useLayoutEffect(() => {
 		if (
@@ -93,8 +99,9 @@ function TraceFlameGraph(props: {
 	onSpanSelect: SpanItemProps['onSpanSelect'];
 	hoveredSpanId: string;
 	selectedSpanId: string;
+	missingSpanTree: boolean;
 }): JSX.Element {
-	const { treeData, traceMetaData, onSpanHover } = props;
+	const { treeData, traceMetaData, onSpanHover, missingSpanTree } = props;
 
 	if (!treeData || treeData.id === 'empty' || !traceMetaData) {
 		return <div />;
@@ -140,6 +147,7 @@ function TraceFlameGraph(props: {
 					hoveredSpanId={hoveredSpanId}
 					selectedSpanId={selectedSpanId}
 				/>
+
 				{spanData.children.map((childData) => (
 					<RenderSpanRecursive
 						level={level + 1}
@@ -164,7 +172,7 @@ function TraceFlameGraph(props: {
 				onSpanSelect={onSpanSelect}
 				hoveredSpanId={hoveredSpanId}
 				selectedSpanId={selectedSpanId}
-				level={0}
+				level={missingSpanTree ? -1 : 0}
 				parentLeftOffset={0}
 			/>
 		</TraceFlameGraphContainer>

@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Container, Service, Span, SpanWrapper } from './styles';
 
 function SpanNameComponent({
@@ -10,7 +8,7 @@ function SpanNameComponent({
 		<Container title={`${name} ${serviceName}`}>
 			<SpanWrapper>
 				<Span ellipsis>{name}</Span>
-				<Service>{serviceName}</Service>
+				<Service ellipsis>{serviceName}</Service>
 			</SpanWrapper>
 		</Container>
 	);

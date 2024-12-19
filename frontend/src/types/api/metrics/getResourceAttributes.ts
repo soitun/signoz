@@ -1,8 +1,18 @@
+import { IAttributeValuesResponse } from '../queryBuilder/getAttributesValues';
+import { IQueryAutocompleteResponse } from '../queryBuilder/queryAutocompleteResponse';
+
+export type TagKeyProps = {
+	match?: string;
+	metricName: string;
+};
 export type TagKeysPayloadProps = {
-	data: string[];
+	data: IQueryAutocompleteResponse;
 };
 
-export type TagValueProps = string;
+export type TagValueProps = {
+	tagKey: string;
+	metricName: string;
+};
 export type TagValuesPayloadProps = {
-	data: string[];
+	data: IAttributeValuesResponse;
 };

@@ -7,19 +7,18 @@ export const SpaceComponent = styled(Space)`
 	}
 `;
 
-export const SelectComponent = styled(Select)`
-	&&& {
-		min-width: 170px;
-		margin-right: 21.91px;
-		margin-left: 21.92px;
-	}
-`;
-
-export const Container = styled.div`
+export const Container = styled(Space)`
 	&&& {
 		display: flex;
 		margin-top: 1rem;
 		margin-bottom: 1rem;
+	}
+
+	.ant-space-item:not(:last-child, :nth-child(2)) {
+		width: 100%;
+	}
+	.ant-space-item:nth-child(2) {
+		width: 50%;
 	}
 `;
 
@@ -30,4 +29,10 @@ export const IconContainer = styled.div`
 	cursor: pointer;
 
 	margin-left: 1.125rem;
+`;
+
+export const SelectComponent = styled(Select)`
+	&&& {
+		width: 100%;
+	}
 `;

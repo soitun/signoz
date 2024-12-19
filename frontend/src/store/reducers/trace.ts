@@ -11,6 +11,7 @@ import {
 	UPDATE_SELECTED_TAGS,
 	UPDATE_SPAN_ORDER,
 	UPDATE_SPAN_ORDER_PARAMS,
+	UPDATE_SPAN_UPDATE_FILTER_DISPLAY_VALUE,
 	UPDATE_SPANS_AGGREGATE,
 	UPDATE_SPANS_AGGREGATE_PAGE_NUMBER,
 	UPDATE_SPANS_AGGREGATE_PAGE_SIZE,
@@ -22,6 +23,8 @@ import {
 	UPDATE_TRACE_GRAPH_SUCCESS,
 } from 'types/actions/trace';
 import { TraceFilterEnum, TraceReducer } from 'types/reducer/trace';
+
+export const INITIAL_FILTER_VALUE = 8;
 
 const initialValue: TraceReducer = {
 	filter: new Map(),
@@ -53,6 +56,19 @@ const initialValue: TraceReducer = {
 		loading: true,
 		payload: { items: {} },
 	},
+	filterDisplayValue: new Map<TraceFilterEnum, number>([
+		['duration', INITIAL_FILTER_VALUE],
+		['httpHost', INITIAL_FILTER_VALUE],
+		['httpMethod', INITIAL_FILTER_VALUE],
+		['httpUrl', INITIAL_FILTER_VALUE],
+		['operation', INITIAL_FILTER_VALUE],
+		['rpcMethod', INITIAL_FILTER_VALUE],
+		['responseStatusCode', INITIAL_FILTER_VALUE],
+		['serviceName', INITIAL_FILTER_VALUE],
+		['status', INITIAL_FILTER_VALUE],
+		['traceID', INITIAL_FILTER_VALUE],
+	]),
+	spanKind: undefined,
 };
 
 const traceReducer = (
@@ -80,6 +96,7 @@ const traceReducer = (
 				order,
 				pageSize,
 				orderParam,
+				spanKind,
 			} = payload;
 
 			return {
@@ -97,6 +114,7 @@ const traceReducer = (
 					order,
 					orderParam,
 				},
+				spanKind,
 			};
 		}
 
@@ -248,6 +266,13 @@ const traceReducer = (
 					...state.spansAggregate,
 					orderParam: action.payload.orderParam,
 				},
+			};
+		}
+
+		case UPDATE_SPAN_UPDATE_FILTER_DISPLAY_VALUE: {
+			return {
+				...state,
+				filterDisplayValue: action.payload,
 			};
 		}
 

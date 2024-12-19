@@ -1,4 +1,8 @@
-import { applyMiddleware, compose, createStore } from 'redux';
+import {
+	applyMiddleware,
+	compose,
+	legacy_createStore as createStore,
+} from 'redux';
 import thunk, { ThunkMiddleware } from 'redux-thunk';
 import AppActions from 'types/actions';
 
@@ -13,5 +17,11 @@ const store = createStore(
 		applyMiddleware(thunk as ThunkMiddleware<AppState, AppActions>),
 	),
 );
+
+export type AppDispatch = typeof store.dispatch;
+
+if (window !== undefined) {
+	window.store = store;
+}
 
 export default store;
