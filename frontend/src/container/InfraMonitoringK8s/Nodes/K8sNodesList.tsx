@@ -32,6 +32,7 @@ import {
 } from '../constants';
 import K8sHeader from '../K8sHeader';
 import LoadingContainer from '../LoadingContainer';
+import { usePageSize } from '../utils';
 import NodeDetails from './NodeDetails';
 import {
 	defaultAddedColumns,
@@ -45,9 +46,11 @@ import {
 function K8sNodesList({
 	isFiltersVisible,
 	handleFilterVisibilityChange,
+	quickFiltersLastUpdated,
 }: {
 	isFiltersVisible: boolean;
 	handleFilterVisibilityChange: () => void;
+	quickFiltersLastUpdated: number;
 }): JSX.Element {
 	const { maxTime, minTime } = useSelector<AppState, GlobalReducer>(
 		(state) => state.globalTime,
@@ -60,11 +63,11 @@ function K8sNodesList({
 	const [orderBy, setOrderBy] = useState<{
 		columnName: string;
 		order: 'asc' | 'desc';
-	} | null>(null);
+	} | null>({ columnName: 'cpu', order: 'desc' });
 
 	const [selectedNodeUID, setselectedNodeUID] = useState<string | null>(null);
 
-	const pageSize = 10;
+	const { pageSize, setPageSize } = usePageSize(K8sCategory.NODES);
 
 	const [groupBy, setGroupBy] = useState<IBuilderQuery['groupBy']>([]);
 
@@ -76,12 +79,28 @@ function K8sNodesList({
 		{ value: string; label: string }[]
 	>([]);
 
+	const { currentQuery } = useQueryBuilder();
+
+	const queryFilters = useMemo(
+		() =>
+			currentQuery?.builder?.queryData[0]?.filters || {
+				items: [],
+				op: 'and',
+			},
+		[currentQuery?.builder?.queryData],
+	);
+
+	// Reset pagination every time quick filters are changed
+	useEffect(() => {
+		setCurrentPage(1);
+	}, [quickFiltersLastUpdated]);
+
 	const createFiltersForSelectedRowData = (
 		selectedRowData: K8sNodesRowData,
 		groupBy: IBuilderQuery['groupBy'],
 	): IBuilderQuery['filters'] => {
 		const baseFilters: IBuilderQuery['filters'] = {
-			items: [],
+			items: [...queryFilters.items],
 			op: 'and',
 		};
 
@@ -120,6 +139,7 @@ function K8sNodesList({
 			end: Math.floor(maxTime / 1000000),
 			orderBy,
 		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [minTime, maxTime, orderBy, selectedRowData, groupBy]);
 
 	const {
@@ -132,8 +152,6 @@ function K8sNodesList({
 		queryKey: ['nodeList', fetchGroupedByRowDataQuery],
 		enabled: !!fetchGroupedByRowDataQuery && !!selectedRowData,
 	});
-
-	const { currentQuery } = useQueryBuilder();
 
 	const {
 		data: groupByFiltersData,
@@ -153,15 +171,6 @@ function K8sNodesList({
 		K8sCategory.NODES,
 	);
 
-	const queryFilters = useMemo(
-		() =>
-			currentQuery?.builder?.queryData[0]?.filters || {
-				items: [],
-				op: 'and',
-			},
-		[currentQuery?.builder?.queryData],
-	);
-
 	const query = useMemo(() => {
 		const baseQuery = getK8sNodesListQuery();
 		const queryPayload = {
@@ -177,7 +186,12 @@ function K8sNodesList({
 			queryPayload.groupBy = groupBy;
 		}
 		return queryPayload;
-	}, [currentPage, minTime, maxTime, orderBy, groupBy, queryFilters]);
+	}, [pageSize, currentPage, queryFilters, minTime, maxTime, orderBy, groupBy]);
+
+	const nestedNodesData = useMemo(() => {
+		if (!selectedRowData || !groupedByRowData?.payload?.data.records) return [];
+		return groupedByRowData?.payload?.data?.records || [];
+	}, [groupedByRowData, selectedRowData]);
 
 	const formattedGroupedByNodesData = useMemo(
 		() =>
@@ -265,8 +279,15 @@ function K8sNodesList({
 
 	const selectedNodeData = useMemo(() => {
 		if (!selectedNodeUID) return null;
+		if (groupBy.length > 0) {
+			// If grouped by, return the node from the formatted grouped by nodes data
+			return (
+				nestedNodesData.find((node) => node.nodeUID === selectedNodeUID) || null
+			);
+		}
+		// If not grouped by, return the node from the nodes data
 		return nodesData.find((node) => node.nodeUID === selectedNodeUID) || null;
-	}, [selectedNodeUID, nodesData]);
+	}, [selectedNodeUID, groupBy.length, nodesData, nestedNodesData]);
 
 	const handleRowClick = (record: K8sNodesRowData): void => {
 		if (groupBy.length === 0) {
@@ -308,6 +329,7 @@ function K8sNodesList({
 			) : (
 				<div className="expanded-table">
 					<Table
+						className="expanded-table-view"
 						columns={nestedColumns as ColumnType<K8sNodesRowData>[]}
 						dataSource={formattedGroupedByNodesData}
 						pagination={false}
@@ -319,6 +341,10 @@ function K8sNodesList({
 							indicator: <Spin indicator={<LoadingOutlined size={14} spin />} />,
 						}}
 						showHeader={false}
+						onRow={(record): { onClick: () => void; className: string } => ({
+							onClick: (): void => setselectedNodeUID(record.nodeUID),
+							className: 'expanded-clickable-row',
+						})}
 					/>
 
 					{groupedByRowData?.payload?.data?.total &&
@@ -382,18 +408,6 @@ function K8sNodesList({
 		setselectedNodeUID(null);
 	};
 
-	const showsNodesTable =
-		!isError &&
-		!isLoading &&
-		!isFetching &&
-		!(formattedNodesData.length === 0 && queryFilters.items.length > 0);
-
-	const showNoFilteredNodesMessage =
-		!isFetching &&
-		!isLoading &&
-		formattedNodesData.length === 0 &&
-		queryFilters.items.length > 0;
-
 	const handleGroupByChange = useCallback(
 		(value: IBuilderQuery['groupBy']) => {
 			const groupBy = [];
@@ -409,7 +423,8 @@ function K8sNodesList({
 					groupBy.push(key);
 				}
 			}
-
+			// Reset pagination on switching to groupBy
+			setCurrentPage(1);
 			setGroupBy(groupBy);
 			setExpandedRowKeys([]);
 		},
@@ -442,54 +457,57 @@ function K8sNodesList({
 			/>
 			{isError && <Typography>{data?.error || 'Something went wrong'}</Typography>}
 
-			{showNoFilteredNodesMessage && (
-				<div className="no-filtered-hosts-message-container">
-					<div className="no-filtered-hosts-message-content">
-						<img
-							src="/Icons/emptyState.svg"
-							alt="thinking-emoji"
-							className="empty-state-svg"
-						/>
+			<Table
+				className="k8s-list-table nodes-list-table"
+				dataSource={isFetching || isLoading ? [] : formattedNodesData}
+				columns={columns}
+				pagination={{
+					current: currentPage,
+					pageSize,
+					total: totalCount,
+					showSizeChanger: true,
+					hideOnSinglePage: false,
+					onChange: (page, pageSize): void => {
+						setCurrentPage(page);
+						setPageSize(pageSize);
+					},
+				}}
+				scroll={{ x: true }}
+				loading={{
+					spinning: isFetching || isLoading,
+					indicator: <Spin indicator={<LoadingOutlined size={14} spin />} />,
+				}}
+				locale={{
+					emptyText:
+						isFetching || isLoading ? null : (
+							<div className="no-filtered-hosts-message-container">
+								<div className="no-filtered-hosts-message-content">
+									<img
+										src="/Icons/emptyState.svg"
+										alt="thinking-emoji"
+										className="empty-state-svg"
+									/>
 
-						<Typography.Text className="no-filtered-hosts-message">
-							This query had no results. Edit your query and try again!
-						</Typography.Text>
-					</div>
-				</div>
-			)}
+									<Typography.Text className="no-filtered-hosts-message">
+										This query had no results. Edit your query and try again!
+									</Typography.Text>
+								</div>
+							</div>
+						),
+				}}
+				tableLayout="fixed"
+				onChange={handleTableChange}
+				onRow={(record): { onClick: () => void; className: string } => ({
+					onClick: (): void => handleRowClick(record),
+					className: 'clickable-row',
+				})}
+				expandable={{
+					expandedRowRender: isGroupedByAttribute ? expandedRowRender : undefined,
+					expandIcon: expandRowIconRenderer,
+					expandedRowKeys,
+				}}
+			/>
 
-			{(isFetching || isLoading) && <LoadingContainer />}
-
-			{showsNodesTable && (
-				<Table
-					className="k8s-list-table nodes-list-table"
-					dataSource={isFetching || isLoading ? [] : formattedNodesData}
-					columns={columns}
-					pagination={{
-						current: currentPage,
-						pageSize,
-						total: totalCount,
-						showSizeChanger: false,
-						hideOnSinglePage: true,
-					}}
-					scroll={{ x: true }}
-					loading={{
-						spinning: isFetching || isLoading,
-						indicator: <Spin indicator={<LoadingOutlined size={14} spin />} />,
-					}}
-					tableLayout="fixed"
-					onChange={handleTableChange}
-					onRow={(record): { onClick: () => void; className: string } => ({
-						onClick: (): void => handleRowClick(record),
-						className: 'clickable-row',
-					})}
-					expandable={{
-						expandedRowRender: isGroupedByAttribute ? expandedRowRender : undefined,
-						expandIcon: expandRowIconRenderer,
-						expandedRowKeys,
-					}}
-				/>
-			)}
 			<NodeDetails
 				node={selectedNodeData}
 				isModalTimeSelection

@@ -5,25 +5,51 @@ import * as Sentry from '@sentry/react';
 import type { CollapseProps } from 'antd';
 import { Collapse, Tooltip, Typography } from 'antd';
 import QuickFilters from 'components/QuickFilters/QuickFilters';
+import { QuickFiltersSource } from 'components/QuickFilters/types';
 import { useQueryBuilder } from 'hooks/queryBuilder/useQueryBuilder';
 import { useQueryOperations } from 'hooks/queryBuilder/useQueryBuilderOperations';
-import { Container, Workflow } from 'lucide-react';
+import {
+	ArrowUpDown,
+	Bolt,
+	Boxes,
+	Computer,
+	Container,
+	FilePenLine,
+	Group,
+	HardDrive,
+	Workflow,
+} from 'lucide-react';
 import ErrorBoundaryFallback from 'pages/ErrorBoundaryFallback/ErrorBoundaryFallback';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { Query } from 'types/api/queryBuilder/queryBuilderData';
 
+import K8sClustersList from './Clusters/K8sClustersList';
 import {
+	ClustersQuickFiltersConfig,
+	DaemonSetsQuickFiltersConfig,
+	DeploymentsQuickFiltersConfig,
+	JobsQuickFiltersConfig,
 	K8sCategories,
+	NamespaceQuickFiltersConfig,
 	NodesQuickFiltersConfig,
 	PodsQuickFiltersConfig,
+	StatefulsetsQuickFiltersConfig,
+	VolumesQuickFiltersConfig,
 } from './constants';
+import K8sDaemonSetsList from './DaemonSets/K8sDaemonSetsList';
+import K8sDeploymentsList from './Deployments/K8sDeploymentsList';
+import K8sJobsList from './Jobs/K8sJobsList';
+import K8sNamespacesList from './Namespaces/K8sNamespacesList';
 import K8sNodesList from './Nodes/K8sNodesList';
 import K8sPodLists from './Pods/K8sPodLists';
+import K8sStatefulSetsList from './StatefulSets/K8sStatefulSetsList';
+import K8sVolumesList from './Volumes/K8sVolumesList';
 
 export default function InfraMonitoringK8s(): JSX.Element {
 	const [showFilters, setShowFilters] = useState(true);
 
 	const [selectedCategory, setSelectedCategory] = useState(K8sCategories.PODS);
+	const [quickFiltersLastUpdated, setQuickFiltersLastUpdated] = useState(-1);
 
 	const { currentQuery } = useQueryBuilder();
 
@@ -37,14 +63,12 @@ export default function InfraMonitoringK8s(): JSX.Element {
 		entityVersion: '',
 	});
 
-	const handleFilterChange = useCallback(
-		(query: Query): void => {
-			// update the current query with the new filters
-			// in infra monitoring k8s, we are using only one query, hence updating the 0th index of queryData
-			handleChangeQueryData('filters', query.builder.queryData[0].filters);
-		},
-		[handleChangeQueryData],
-	);
+	const handleFilterChange = (query: Query): void => {
+		// update the current query with the new filters
+		// in infra monitoring k8s, we are using only one query, hence updating the 0th index of queryData
+		handleChangeQueryData('filters', query.builder.queryData[0].filters);
+		setQuickFiltersLastUpdated(Date.now());
+	};
 
 	const items: CollapseProps['items'] = [
 		{
@@ -60,7 +84,7 @@ export default function InfraMonitoringK8s(): JSX.Element {
 			showArrow: false,
 			children: (
 				<QuickFilters
-					source="infra-monitoring"
+					source={QuickFiltersSource.INFRA_MONITORING}
 					config={PodsQuickFiltersConfig}
 					handleFilterVisibilityChange={handleFilterVisibilityChange}
 					onFilterChange={handleFilterChange}
@@ -80,57 +104,160 @@ export default function InfraMonitoringK8s(): JSX.Element {
 			showArrow: false,
 			children: (
 				<QuickFilters
-					source="infra-monitoring"
+					source={QuickFiltersSource.INFRA_MONITORING}
 					config={NodesQuickFiltersConfig}
 					handleFilterVisibilityChange={handleFilterVisibilityChange}
 					onFilterChange={handleFilterChange}
 				/>
 			),
 		},
-		// NOTE - Enabled these as we release new entities
-		// {
-		// 	label: (
-		// 		<div className="k8s-quick-filters-category-label">
-		// 			<div className="k8s-quick-filters-category-label-container">
-		// 				<FilePenLine
-		// 					size={14}
-		// 					className="k8s-quick-filters-category-label-icon"
-		// 				/>
-		// 				<Typography.Text>Namespace</Typography.Text>
-		// 			</div>
-		// 		</div>
-		// 	),
-		// 	key: K8sCategories.NAMESPACES,
-		// 	showArrow: false,
-		// 	children: (
-		// 		<QuickFilters
-		// 			source="infra-monitoring"
-		// 			config={NamespaceQuickFiltersConfig}
-		// 			handleFilterVisibilityChange={handleFilterVisibilityChange}
-		// 			onFilterChange={handleFilterChange}
-		// 		/>
-		// 	),
-		// },
-		// {
-		// 	label: (
-		// 		<div className="k8s-quick-filters-category-label">
-		// 			<div className="k8s-quick-filters-category-label-container">
-		// 				<Boxes size={14} className="k8s-quick-filters-category-label-icon" />
-		// 				<Typography.Text>Clusters</Typography.Text>
-		// 			</div>
-		// 		</div>
-		// 	),
-		// 	key: K8sCategories.CLUSTERS,
-		// 	showArrow: false,
-		// 	children: (
-		// 		<QuickFilters
-		// 			source="infra-monitoring"
-		// 			config={ClustersQuickFiltersConfig}
-		// 			handleFilterVisibilityChange={handleFilterVisibilityChange}
-		// 			onFilterChange={handleFilterChange}
-		// 		/>
-		// 	),
-		// },
+		{
+			label: (
+				<div className="k8s-quick-filters-category-label">
+					<div className="k8s-quick-filters-category-label-container">
+						<FilePenLine
+							size={14}
+							className="k8s-quick-filters-category-label-icon"
+						/>
+						<Typography.Text>Namespaces</Typography.Text>
+					</div>
+				</div>
+			),
+			key: K8sCategories.NAMESPACES,
+			showArrow: false,
+			children: (
+				<QuickFilters
+					source={QuickFiltersSource.INFRA_MONITORING}
+					config={NamespaceQuickFiltersConfig}
+					handleFilterVisibilityChange={handleFilterVisibilityChange}
+					onFilterChange={handleFilterChange}
+				/>
+			),
+		},
+		{
+			label: (
+				<div className="k8s-quick-filters-category-label">
+					<div className="k8s-quick-filters-category-label-container">
+						<Boxes size={14} className="k8s-quick-filters-category-label-icon" />
+						<Typography.Text>Clusters</Typography.Text>
+					</div>
+				</div>
+			),
+			key: K8sCategories.CLUSTERS,
+			showArrow: false,
+			children: (
+				<QuickFilters
+					source={QuickFiltersSource.INFRA_MONITORING}
+					config={ClustersQuickFiltersConfig}
+					handleFilterVisibilityChange={handleFilterVisibilityChange}
+					onFilterChange={handleFilterChange}
+				/>
+			),
+		},
+		{
+			label: (
+				<div className="k8s-quick-filters-category-label">
+					<div className="k8s-quick-filters-category-label-container">
+						<Computer size={14} className="k8s-quick-filters-category-label-icon" />
+						<Typography.Text>Deployments</Typography.Text>
+					</div>
+				</div>
+			),
+			key: K8sCategories.DEPLOYMENTS,
+			showArrow: false,
+			children: (
+				<QuickFilters
+					source={QuickFiltersSource.INFRA_MONITORING}
+					config={DeploymentsQuickFiltersConfig}
+					handleFilterVisibilityChange={handleFilterVisibilityChange}
+					onFilterChange={handleFilterChange}
+				/>
+			),
+		},
+		{
+			label: (
+				<div className="k8s-quick-filters-category-label">
+					<div className="k8s-quick-filters-category-label-container">
+						<Bolt size={14} className="k8s-quick-filters-category-label-icon" />
+						<Typography.Text>Jobs</Typography.Text>
+					</div>
+				</div>
+			),
+			key: K8sCategories.JOBS,
+			showArrow: false,
+			children: (
+				<QuickFilters
+					source={QuickFiltersSource.INFRA_MONITORING}
+					config={JobsQuickFiltersConfig}
+					handleFilterVisibilityChange={handleFilterVisibilityChange}
+					onFilterChange={handleFilterChange}
+				/>
+			),
+		},
+		{
+			label: (
+				<div className="k8s-quick-filters-category-label">
+					<div className="k8s-quick-filters-category-label-container">
+						<Group size={14} className="k8s-quick-filters-category-label-icon" />
+						<Typography.Text>DaemonSets</Typography.Text>
+					</div>
+				</div>
+			),
+			key: K8sCategories.DAEMONSETS,
+			showArrow: false,
+			children: (
+				<QuickFilters
+					source={QuickFiltersSource.INFRA_MONITORING}
+					config={DaemonSetsQuickFiltersConfig}
+					handleFilterVisibilityChange={handleFilterVisibilityChange}
+					onFilterChange={handleFilterChange}
+				/>
+			),
+		},
+		{
+			label: (
+				<div className="k8s-quick-filters-category-label">
+					<div className="k8s-quick-filters-category-label-container">
+						<ArrowUpDown
+							size={14}
+							className="k8s-quick-filters-category-label-icon"
+						/>
+						<Typography.Text>StatefulSets</Typography.Text>
+					</div>
+				</div>
+			),
+			key: K8sCategories.STATEFULSETS,
+			showArrow: false,
+			children: (
+				<QuickFilters
+					source={QuickFiltersSource.INFRA_MONITORING}
+					config={StatefulsetsQuickFiltersConfig}
+					handleFilterVisibilityChange={handleFilterVisibilityChange}
+					onFilterChange={handleFilterChange}
+				/>
+			),
+		},
+		{
+			label: (
+				<div className="k8s-quick-filters-category-label">
+					<div className="k8s-quick-filters-category-label-container">
+						<HardDrive size={14} className="k8s-quick-filters-category-label-icon" />
+						<Typography.Text>Volumes</Typography.Text>
+					</div>
+				</div>
+			),
+			key: K8sCategories.VOLUMES,
+			showArrow: false,
+			children: (
+				<QuickFilters
+					source={QuickFiltersSource.INFRA_MONITORING}
+					config={VolumesQuickFiltersConfig}
+					handleFilterVisibilityChange={handleFilterVisibilityChange}
+					onFilterChange={handleFilterChange}
+				/>
+			),
+		},
+		// TODO: Enable once we have implemented containers.
 		// {
 		// 	label: (
 		// 		<div className="k8s-quick-filters-category-label">
@@ -147,111 +274,8 @@ export default function InfraMonitoringK8s(): JSX.Element {
 		// 	showArrow: false,
 		// 	children: (
 		// 		<QuickFilters
-		// 			source="infra-monitoring"
+		// 			source={QuickFiltersSource.INFRA_MONITORING}
 		// 			config={ContainersQuickFiltersConfig}
-		// 			handleFilterVisibilityChange={handleFilterVisibilityChange}
-		// 			onFilterChange={handleFilterChange}
-		// 		/>
-		// 	),
-		// },
-		// {
-		// 	label: (
-		// 		<div className="k8s-quick-filters-category-label">
-		// 			<div className="k8s-quick-filters-category-label-container">
-		// 				<HardDrive size={14} className="k8s-quick-filters-category-label-icon" />
-		// 				<Typography.Text>Volumes</Typography.Text>
-		// 			</div>
-		// 		</div>
-		// 	),
-		// 	key: K8sCategories.VOLUMES,
-		// 	showArrow: false,
-		// 	children: (
-		// 		<QuickFilters
-		// 			source="infra-monitoring"
-		// 			config={VolumesQuickFiltersConfig}
-		// 			handleFilterVisibilityChange={handleFilterVisibilityChange}
-		// 			onFilterChange={handleFilterChange}
-		// 		/>
-		// 	),
-		// },
-		// {
-		// 	label: (
-		// 		<div className="k8s-quick-filters-category-label">
-		// 			<div className="k8s-quick-filters-category-label-container">
-		// 				<Computer size={14} className="k8s-quick-filters-category-label-icon" />
-		// 				<Typography.Text>Deployments</Typography.Text>
-		// 			</div>
-		// 		</div>
-		// 	),
-		// 	key: K8sCategories.DEPLOYMENTS,
-		// 	showArrow: false,
-		// 	children: (
-		// 		<QuickFilters
-		// 			source="infra-monitoring"
-		// 			config={DeploymentsQuickFiltersConfig}
-		// 			handleFilterVisibilityChange={handleFilterVisibilityChange}
-		// 			onFilterChange={handleFilterChange}
-		// 		/>
-		// 	),
-		// },
-		// {
-		// 	label: (
-		// 		<div className="k8s-quick-filters-category-label">
-		// 			<div className="k8s-quick-filters-category-label-container">
-		// 				<Bolt size={14} className="k8s-quick-filters-category-label-icon" />
-		// 				<Typography.Text>Jobs</Typography.Text>
-		// 			</div>
-		// 		</div>
-		// 	),
-		// 	key: K8sCategories.JOBS,
-		// 	showArrow: false,
-		// 	children: (
-		// 		<QuickFilters
-		// 			source="infra-monitoring"
-		// 			config={JobsQuickFiltersConfig}
-		// 			handleFilterVisibilityChange={handleFilterVisibilityChange}
-		// 			onFilterChange={handleFilterChange}
-		// 		/>
-		// 	),
-		// },
-		// {
-		// 	label: (
-		// 		<div className="k8s-quick-filters-category-label">
-		// 			<div className="k8s-quick-filters-category-label-container">
-		// 				<Group size={14} className="k8s-quick-filters-category-label-icon" />
-		// 				<Typography.Text>DaemonSets</Typography.Text>
-		// 			</div>
-		// 		</div>
-		// 	),
-		// 	key: K8sCategories.DAEMONSETS,
-		// 	showArrow: false,
-		// 	children: (
-		// 		<QuickFilters
-		// 			source="infra-monitoring"
-		// 			config={DaemonSetsQuickFiltersConfig}
-		// 			handleFilterVisibilityChange={handleFilterVisibilityChange}
-		// 			onFilterChange={handleFilterChange}
-		// 		/>
-		// 	),
-		// },
-		// {
-		// 	label: (
-		// 		<div className="k8s-quick-filters-category-label">
-		// 			<div className="k8s-quick-filters-category-label-container">
-		// 				<ArrowUpDown
-		// 					size={14}
-		// 					className="k8s-quick-filters-category-label-icon"
-		// 				/>
-		// 				<Typography.Text>StatefulSets</Typography.Text>
-		// 			</div>
-		// 		</div>
-		// 	),
-		// 	key: K8sCategories.STATEFULSETS,
-		// 	showArrow: false,
-		// 	children: (
-		// 		<QuickFilters
-		// 			source="infra-monitoring"
-		// 			config={StatefulsetsQuickFiltersConfig}
 		// 			handleFilterVisibilityChange={handleFilterVisibilityChange}
 		// 			onFilterChange={handleFilterChange}
 		// 		/>
@@ -262,6 +286,8 @@ export default function InfraMonitoringK8s(): JSX.Element {
 	const handleCategoryChange = (key: string | string[]): void => {
 		if (Array.isArray(key) && key.length > 0) {
 			setSelectedCategory(key[0] as string);
+			// Reset filters
+			handleChangeQueryData('filters', { items: [], op: 'and' });
 		}
 	};
 
@@ -302,6 +328,7 @@ export default function InfraMonitoringK8s(): JSX.Element {
 							<K8sPodLists
 								isFiltersVisible={showFilters}
 								handleFilterVisibilityChange={handleFilterVisibilityChange}
+								quickFiltersLastUpdated={quickFiltersLastUpdated}
 							/>
 						)}
 
@@ -309,6 +336,63 @@ export default function InfraMonitoringK8s(): JSX.Element {
 							<K8sNodesList
 								isFiltersVisible={showFilters}
 								handleFilterVisibilityChange={handleFilterVisibilityChange}
+								quickFiltersLastUpdated={quickFiltersLastUpdated}
+							/>
+						)}
+
+						{selectedCategory === K8sCategories.CLUSTERS && (
+							<K8sClustersList
+								isFiltersVisible={showFilters}
+								handleFilterVisibilityChange={handleFilterVisibilityChange}
+								quickFiltersLastUpdated={quickFiltersLastUpdated}
+							/>
+						)}
+
+						{selectedCategory === K8sCategories.DEPLOYMENTS && (
+							<K8sDeploymentsList
+								isFiltersVisible={showFilters}
+								handleFilterVisibilityChange={handleFilterVisibilityChange}
+								quickFiltersLastUpdated={quickFiltersLastUpdated}
+							/>
+						)}
+
+						{selectedCategory === K8sCategories.NAMESPACES && (
+							<K8sNamespacesList
+								isFiltersVisible={showFilters}
+								handleFilterVisibilityChange={handleFilterVisibilityChange}
+								quickFiltersLastUpdated={quickFiltersLastUpdated}
+							/>
+						)}
+
+						{selectedCategory === K8sCategories.STATEFULSETS && (
+							<K8sStatefulSetsList
+								isFiltersVisible={showFilters}
+								handleFilterVisibilityChange={handleFilterVisibilityChange}
+								quickFiltersLastUpdated={quickFiltersLastUpdated}
+							/>
+						)}
+
+						{selectedCategory === K8sCategories.JOBS && (
+							<K8sJobsList
+								isFiltersVisible={showFilters}
+								handleFilterVisibilityChange={handleFilterVisibilityChange}
+								quickFiltersLastUpdated={quickFiltersLastUpdated}
+							/>
+						)}
+
+						{selectedCategory === K8sCategories.DAEMONSETS && (
+							<K8sDaemonSetsList
+								isFiltersVisible={showFilters}
+								handleFilterVisibilityChange={handleFilterVisibilityChange}
+								quickFiltersLastUpdated={quickFiltersLastUpdated}
+							/>
+						)}
+
+						{selectedCategory === K8sCategories.VOLUMES && (
+							<K8sVolumesList
+								isFiltersVisible={showFilters}
+								handleFilterVisibilityChange={handleFilterVisibilityChange}
+								quickFiltersLastUpdated={quickFiltersLastUpdated}
 							/>
 						)}
 					</div>

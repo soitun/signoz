@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/storage"
 	"github.com/prometheus/prometheus/util/stats"
@@ -41,6 +40,8 @@ type Reader interface {
 
 	// Search Interfaces
 	SearchTraces(ctx context.Context, params *model.SearchTracesParams, smartTraceAlgorithm func(payload []model.SearchSpanResponseItem, targetSpanId string, levelUp int, levelDown int, spanLimit int) ([]model.SearchSpansResult, error)) (*[]model.SearchSpansResult, error)
+	GetWaterfallSpansForTraceWithMetadata(ctx context.Context, traceID string, req *model.GetWaterfallSpansForTraceWithMetadataParams) (*model.GetWaterfallSpansForTraceWithMetadataResponse, *model.ApiError)
+	GetFlamegraphSpansForTrace(ctx context.Context, traceID string, req *model.GetFlamegraphSpansForTraceParams) (*model.GetFlamegraphSpansForTraceResponse, *model.ApiError)
 
 	// Setter Interfaces
 	SetTTL(ctx context.Context, ttlParams *model.TTLParams) (*model.SetTTLResponseItem, *model.ApiError)
@@ -83,7 +84,6 @@ type Reader interface {
 	) (*v3.QBFilterSuggestionsResponse, *model.ApiError)
 
 	// Connection needed for rules, not ideal but required
-	GetConn() clickhouse.Conn
 	GetQueryEngine() *promql.Engine
 	GetFanoutStorage() *storage.Storage
 

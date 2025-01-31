@@ -15,6 +15,7 @@ import get from 'api/browser/localstorage/get';
 import set from 'api/browser/localstorage/set';
 import logEvent from 'api/common/logEvent';
 import { K8sPodsListPayload } from 'api/infraMonitoring/getK8sPodsList';
+import classNames from 'classnames';
 import { useGetK8sPodsList } from 'hooks/infraMonitoring/useGetK8sPodsList';
 import { useGetAggregateKeys } from 'hooks/queryBuilder/useGetAggregateKeys';
 import { useQueryBuilder } from 'hooks/queryBuilder/useQueryBuilder';
@@ -38,8 +39,9 @@ import {
 	formatDataForTable,
 	getK8sPodsListColumns,
 	getK8sPodsListQuery,
-	IPodColumn,
+	IEntityColumn,
 	K8sPodsRowData,
+	usePageSize,
 } from '../utils';
 import PodDetails from './PodDetails/PodDetails';
 
@@ -47,9 +49,11 @@ import PodDetails from './PodDetails/PodDetails';
 function K8sPodsList({
 	isFiltersVisible,
 	handleFilterVisibilityChange,
+	quickFiltersLastUpdated,
 }: {
 	isFiltersVisible: boolean;
 	handleFilterVisibilityChange: () => void;
+	quickFiltersLastUpdated: number;
 }): JSX.Element {
 	const { maxTime, minTime } = useSelector<AppState, GlobalReducer>(
 		(state) => state.globalTime,
@@ -57,9 +61,9 @@ function K8sPodsList({
 
 	const [currentPage, setCurrentPage] = useState(1);
 
-	const [addedColumns, setAddedColumns] = useState<IPodColumn[]>([]);
+	const [addedColumns, setAddedColumns] = useState<IEntityColumn[]>([]);
 
-	const [availableColumns, setAvailableColumns] = useState<IPodColumn[]>(
+	const [availableColumns, setAvailableColumns] = useState<IEntityColumn[]>(
 		defaultAvailableColumns,
 	);
 
@@ -104,8 +108,13 @@ function K8sPodsList({
 		K8sCategory.PODS, // infraMonitoringEntity
 	);
 
+	// Reset pagination every time quick filters are changed
 	useEffect(() => {
-		const addedColumns = JSON.parse(get('k8sPodsAddedColumns') ?? '');
+		setCurrentPage(1);
+	}, [quickFiltersLastUpdated]);
+
+	useEffect(() => {
+		const addedColumns = JSON.parse(get('k8sPodsAddedColumns') ?? '[]');
 
 		if (addedColumns && addedColumns.length > 0) {
 			const availableColumns = defaultAvailableColumns.filter(
@@ -124,11 +133,11 @@ function K8sPodsList({
 	const [orderBy, setOrderBy] = useState<{
 		columnName: string;
 		order: 'asc' | 'desc';
-	} | null>(null);
+	} | null>({ columnName: 'cpu', order: 'desc' });
 
 	const [selectedPodUID, setSelectedPodUID] = useState<string | null>(null);
 
-	const pageSize = 10;
+	const { pageSize, setPageSize } = usePageSize(K8sCategory.PODS);
 
 	const query = useMemo(() => {
 		const baseQuery = getK8sPodsListQuery();
@@ -148,7 +157,7 @@ function K8sPodsList({
 		}
 
 		return queryPayload;
-	}, [currentPage, minTime, maxTime, orderBy, groupBy, queryFilters]);
+	}, [pageSize, currentPage, queryFilters, minTime, maxTime, orderBy, groupBy]);
 
 	const { data, isFetching, isLoading, isError } = useGetK8sPodsList(
 		query as K8sPodsListPayload,
@@ -162,7 +171,7 @@ function K8sPodsList({
 		selectedRowData: K8sPodsRowData,
 	): IBuilderQuery['filters'] => {
 		const baseFilters: IBuilderQuery['filters'] = {
-			items: [],
+			items: [...queryFilters.items],
 			op: 'and',
 		};
 
@@ -201,6 +210,7 @@ function K8sPodsList({
 			end: Math.floor(maxTime / 1000000),
 			orderBy,
 		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [minTime, maxTime, orderBy, selectedRowData]);
 
 	const {
@@ -216,6 +226,11 @@ function K8sPodsList({
 
 	const podsData = useMemo(() => data?.payload?.data?.records || [], [data]);
 	const totalCount = data?.payload?.data?.total || 0;
+
+	const nestedPodsData = useMemo(() => {
+		if (!selectedRowData || !groupedByRowData?.payload?.data.records) return [];
+		return groupedByRowData?.payload?.data?.records || [];
+	}, [groupedByRowData, selectedRowData]);
 
 	const formattedPodsData = useMemo(
 		() => formatDataForTable(podsData, groupBy),
@@ -289,8 +304,9 @@ function K8sPodsList({
 				}
 			}
 
+			// Reset pagination on switching to groupBy
+			setCurrentPage(1);
 			setGroupBy(groupBy);
-
 			setExpandedRowKeys([]);
 		},
 		[groupByFiltersData],
@@ -302,8 +318,13 @@ function K8sPodsList({
 
 	const selectedPodData = useMemo(() => {
 		if (!selectedPodUID) return null;
+		if (groupBy.length > 0) {
+			// If grouped by, return the pod from the formatted grouped by pods data
+			return nestedPodsData.find((pod) => pod.podUID === selectedPodUID) || null;
+		}
+		// If not grouped by, return the node from the nodes data
 		return podsData.find((pod) => pod.podUID === selectedPodUID) || null;
-	}, [selectedPodUID, podsData]);
+	}, [selectedPodUID, groupBy.length, podsData, nestedPodsData]);
 
 	const handleGroupByRowClick = (record: K8sPodsRowData): void => {
 		setSelectedRowData(record);
@@ -338,20 +359,8 @@ function K8sPodsList({
 		setSelectedPodUID(null);
 	};
 
-	const showPodsTable =
-		!isError &&
-		!isLoading &&
-		!isFetching &&
-		!(formattedPodsData.length === 0 && queryFilters.items.length > 0);
-
-	const showNoFilteredPodsMessage =
-		!isFetching &&
-		!isLoading &&
-		formattedPodsData.length === 0 &&
-		queryFilters.items.length > 0;
-
 	const handleAddColumn = useCallback(
-		(column: IPodColumn): void => {
+		(column: IEntityColumn): void => {
 			setAddedColumns((prev) => [...prev, column]);
 
 			setAvailableColumns((prev) => prev.filter((c) => c.value !== column.value));
@@ -378,7 +387,7 @@ function K8sPodsList({
 	}, [groupByFiltersData]);
 
 	const handleRemoveColumn = useCallback(
-		(column: IPodColumn): void => {
+		(column: IEntityColumn): void => {
 			setAddedColumns((prev) => prev.filter((c) => c.value !== column.value));
 
 			setAvailableColumns((prev) => [...prev, column]);
@@ -426,6 +435,10 @@ function K8sPodsList({
 							spinning: isFetchingGroupedByRowData || isLoadingGroupedByRowData,
 							indicator: <Spin indicator={<LoadingOutlined size={14} spin />} />,
 						}}
+						onRow={(record): { onClick: () => void; className: string } => ({
+							onClick: (): void => setSelectedPodUID(record.podUID),
+							className: 'expanded-clickable-row',
+						})}
 					/>
 
 					{groupedByRowData?.payload?.data?.total &&
@@ -505,54 +518,58 @@ function K8sPodsList({
 			/>
 			{isError && <Typography>{data?.error || 'Something went wrong'}</Typography>}
 
-			{showNoFilteredPodsMessage && (
-				<div className="no-filtered-hosts-message-container">
-					<div className="no-filtered-hosts-message-content">
-						<img
-							src="/Icons/emptyState.svg"
-							alt="thinking-emoji"
-							className="empty-state-svg"
-						/>
+			<Table
+				className={classNames('k8s-list-table', {
+					'expanded-k8s-list-table': isGroupedByAttribute,
+				})}
+				dataSource={isFetching || isLoading ? [] : formattedPodsData}
+				columns={columns}
+				pagination={{
+					current: currentPage,
+					pageSize,
+					total: totalCount,
+					showSizeChanger: true,
+					hideOnSinglePage: false,
+					onChange: (page, pageSize): void => {
+						setCurrentPage(page);
+						setPageSize(pageSize);
+					},
+				}}
+				loading={{
+					spinning: isFetching || isLoading,
+					indicator: <Spin indicator={<LoadingOutlined size={14} spin />} />,
+				}}
+				locale={{
+					emptyText:
+						isFetching || isLoading ? null : (
+							<div className="no-filtered-hosts-message-container">
+								<div className="no-filtered-hosts-message-content">
+									<img
+										src="/Icons/emptyState.svg"
+										alt="thinking-emoji"
+										className="empty-state-svg"
+									/>
 
-						<Typography.Text className="no-filtered-hosts-message">
-							This query had no results. Edit your query and try again!
-						</Typography.Text>
-					</div>
-				</div>
-			)}
-
-			{(isFetching || isLoading) && <LoadingContainer />}
-
-			{showPodsTable && (
-				<Table
-					className="k8s-list-table"
-					dataSource={isFetching || isLoading ? [] : formattedPodsData}
-					columns={columns}
-					pagination={{
-						current: currentPage,
-						pageSize,
-						total: totalCount,
-						showSizeChanger: false,
-						hideOnSinglePage: true,
-					}}
-					loading={{
-						spinning: isFetching || isLoading,
-						indicator: <Spin indicator={<LoadingOutlined size={14} spin />} />,
-					}}
-					scroll={{ x: true }}
-					tableLayout="fixed"
-					onChange={handleTableChange}
-					onRow={(record): { onClick: () => void; className: string } => ({
-						onClick: (): void => handleRowClick(record),
-						className: 'clickable-row',
-					})}
-					expandable={{
-						expandedRowRender: isGroupedByAttribute ? expandedRowRender : undefined,
-						expandIcon: expandRowIconRenderer,
-						expandedRowKeys,
-					}}
-				/>
-			)}
+									<Typography.Text className="no-filtered-hosts-message">
+										This query had no results. Edit your query and try again!
+									</Typography.Text>
+								</div>
+							</div>
+						),
+				}}
+				scroll={{ x: true }}
+				tableLayout="fixed"
+				onChange={handleTableChange}
+				onRow={(record): { onClick: () => void; className: string } => ({
+					onClick: (): void => handleRowClick(record),
+					className: 'clickable-row',
+				})}
+				expandable={{
+					expandedRowRender: isGroupedByAttribute ? expandedRowRender : undefined,
+					expandIcon: expandRowIconRenderer,
+					expandedRowKeys,
+				}}
+			/>
 
 			{selectedPodData && (
 				<PodDetails

@@ -25,7 +25,10 @@ import { PANEL_TYPES } from 'constants/queryBuilder';
 import ROUTES from 'constants/routes';
 import ExportPanelContainer from 'container/ExportPanel/ExportPanelContainer';
 import { useOptionsMenu } from 'container/OptionsMenu';
-import { defaultTraceSelectedColumns } from 'container/OptionsMenu/constants';
+import {
+	defaultLogsSelectedColumns,
+	defaultTraceSelectedColumns,
+} from 'container/OptionsMenu/constants';
 import { OptionsQuery } from 'container/OptionsMenu/types';
 import { useGetSearchQueryParam } from 'hooks/queryBuilder/useGetSearchQueryParam';
 import { useQueryBuilder } from 'hooks/queryBuilder/useQueryBuilder';
@@ -37,7 +40,7 @@ import useErrorNotification from 'hooks/useErrorNotification';
 import { useHandleExplorerTabChange } from 'hooks/useHandleExplorerTabChange';
 import { useNotifications } from 'hooks/useNotifications';
 import { mapCompositeQueryFromQuery } from 'lib/newQueryBuilder/queryBuilderMappers/mapCompositeQueryFromQuery';
-import { cloneDeep, isEqual } from 'lodash-es';
+import { cloneDeep, isEqual, omit } from 'lodash-es';
 import {
 	Check,
 	ConciergeBell,
@@ -256,13 +259,17 @@ function ExplorerOptions({
 	const { handleExplorerTabChange } = useHandleExplorerTabChange();
 
 	const { options, handleOptionsChange } = useOptionsMenu({
-		storageKey: LOCALSTORAGE.TRACES_LIST_OPTIONS,
-		dataSource: DataSource.TRACES,
+		storageKey:
+			sourcepage === DataSource.TRACES
+				? LOCALSTORAGE.TRACES_LIST_OPTIONS
+				: LOCALSTORAGE.LOGS_LIST_OPTIONS,
+		dataSource: sourcepage,
 		aggregateOperator: StringOperators.NOOP,
 	});
 
 	type ExtraData = {
 		selectColumns?: BaseAutocompleteData[];
+		version?: number;
 	};
 
 	const updateOrRestoreSelectColumns = (
@@ -283,14 +290,20 @@ function ExplorerOptions({
 			console.error('Error parsing extraData:', error);
 		}
 
+		let backwardCompatibleOptions = options;
+
+		if (!extraData?.version) {
+			backwardCompatibleOptions = omit(options, 'version');
+		}
+
 		if (extraData.selectColumns?.length) {
 			handleOptionsChange({
-				...options,
+				...backwardCompatibleOptions,
 				selectColumns: extraData.selectColumns,
 			});
 		} else if (!isEqual(defaultTraceSelectedColumns, options.selectColumns)) {
 			handleOptionsChange({
-				...options,
+				...backwardCompatibleOptions,
 				selectColumns: defaultTraceSelectedColumns,
 			});
 		}
@@ -398,6 +411,14 @@ function ExplorerOptions({
 	const handleClearSelect = (): void => {
 		removeCurrentViewFromLocalStorage();
 
+		handleOptionsChange({
+			...options,
+			selectColumns:
+				sourcepage === DataSource.TRACES
+					? defaultTraceSelectedColumns
+					: defaultLogsSelectedColumns,
+		});
+
 		history.replace(DATASOURCE_VS_ROUTES[sourcepage]);
 	};
 
@@ -423,6 +444,7 @@ function ExplorerOptions({
 			extraData: JSON.stringify({
 				color,
 				selectColumns: options.selectColumns,
+				version: 1,
 			}),
 			notifications,
 			panelType: panelType || PANEL_TYPES.LIST,

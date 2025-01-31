@@ -5,11 +5,14 @@ import './InfraMonitoringK8s.styles.scss';
 import { Color } from '@signozhq/design-tokens';
 import { Tag, Tooltip } from 'antd';
 import { ColumnType } from 'antd/es/table';
+import get from 'api/browser/localstorage/get';
+import set from 'api/browser/localstorage/set';
 import {
 	K8sPodsData,
 	K8sPodsListPayload,
 } from 'api/infraMonitoring/getK8sPodsList';
 import { Group } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { IBuilderQuery } from 'types/api/queryBuilder/queryBuilderData';
 
 import {
@@ -17,7 +20,7 @@ import {
 	formatBytes,
 	ValidateColumnValueWrapper,
 } from './commonUtils';
-import { K8sCategory } from './constants';
+import { DEFAULT_PAGE_SIZE, K8sCategory } from './constants';
 
 export interface IEntityColumn {
 	label: string;
@@ -26,16 +29,9 @@ export interface IEntityColumn {
 	canRemove: boolean;
 }
 
-export interface IPodColumn {
-	label: string;
-	value: string;
-	id: string;
-	canRemove: boolean;
-}
-
 const columnProgressBarClassName = 'column-progress-bar';
 
-export const defaultAddedColumns: IPodColumn[] = [
+export const defaultAddedColumns: IEntityColumn[] = [
 	{
 		label: 'Pod name',
 		value: 'podName',
@@ -78,12 +74,13 @@ export const defaultAddedColumns: IPodColumn[] = [
 		id: 'memory',
 		canRemove: false,
 	},
-	{
-		label: 'Restarts',
-		value: 'restarts',
-		id: 'restarts',
-		canRemove: false,
-	},
+	// TODO - Re-enable the column once backend issue is fixed
+	// {
+	// 	label: 'Restarts',
+	// 	value: 'restarts',
+	// 	id: 'restarts',
+	// 	canRemove: false,
+	// },
 ];
 
 export const defaultAvailableColumns = [
@@ -131,7 +128,7 @@ export const getK8sPodsListQuery = (): K8sPodsListPayload => ({
 
 const podGroupColumnConfig = {
 	title: (
-		<div className="column-header pod-group-header">
+		<div className="column-header entity-group-header">
 			<Group size={14} /> POD GROUP
 		</div>
 	),
@@ -140,7 +137,7 @@ const podGroupColumnConfig = {
 	ellipsis: true,
 	width: 180,
 	sorter: false,
-	className: 'column column-pod-group',
+	className: 'column entity-group-header',
 };
 
 export const dummyColumnConfig = {
@@ -160,11 +157,11 @@ const columnsConfig = [
 		key: 'podName',
 		width: 180,
 		ellipsis: true,
-		sorter: true,
+		sorter: false,
 		className: 'column column-pod-name',
 	},
 	{
-		title: <div className="column-header">CPU Req Usage (%)</div>,
+		title: <div className="column-header med-col">CPU Req Usage (%)</div>,
 		dataIndex: 'cpu_request',
 		key: 'cpu_request',
 		width: 180,
@@ -174,7 +171,7 @@ const columnsConfig = [
 		className: `column ${columnProgressBarClassName}`,
 	},
 	{
-		title: <div className="column-header">CPU Limit Usage (%)</div>,
+		title: <div className="column-header med-col">CPU Limit Usage (%)</div>,
 		dataIndex: 'cpu_limit',
 		key: 'cpu_limit',
 		width: 120,
@@ -192,7 +189,7 @@ const columnsConfig = [
 		className: `column ${columnProgressBarClassName}`,
 	},
 	{
-		title: <div className="column-header">Mem Req Usage (%)</div>,
+		title: <div className="column-heade med-col">Mem Req Usage (%)</div>,
 		dataIndex: 'memory_request',
 		key: 'memory_request',
 		width: 120,
@@ -201,7 +198,7 @@ const columnsConfig = [
 		className: `column ${columnProgressBarClassName}`,
 	},
 	{
-		title: <div className="column-header">Mem Limit Usage (%)</div>,
+		title: <div className="column-header med-col">Mem Limit Usage (%)</div>,
 		dataIndex: 'memory_limit',
 		key: 'memory_limit',
 		width: 120,
@@ -219,20 +216,21 @@ const columnsConfig = [
 		align: 'left',
 		className: `column ${columnProgressBarClassName}`,
 	},
-	{
-		title: (
-			<div className="column-header">
-				<Tooltip title="Container Restarts">Restarts</Tooltip>
-			</div>
-		),
-		dataIndex: 'restarts',
-		key: 'restarts',
-		width: 40,
-		ellipsis: true,
-		sorter: true,
-		align: 'left',
-		className: `column ${columnProgressBarClassName}`,
-	},
+	// TODO - Re-enable the column once backend issue is fixed
+	// {
+	// 	title: (
+	// 		<div className="column-header">
+	// 			<Tooltip title="Container Restarts">Restarts</Tooltip>
+	// 		</div>
+	// 	),
+	// 	dataIndex: 'restarts',
+	// 	key: 'restarts',
+	// 	width: 40,
+	// 	ellipsis: true,
+	// 	sorter: true,
+	// 	align: 'left',
+	// 	className: `column ${columnProgressBarClassName}`,
+	// },
 ];
 
 export const namespaceColumnConfig = {
@@ -251,7 +249,7 @@ export const nodeColumnConfig = {
 	dataIndex: 'node',
 	key: 'node',
 	width: 100,
-	sorter: true,
+	sorter: false,
 	ellipsis: true,
 	align: 'left',
 	className: 'column column-node',
@@ -262,7 +260,7 @@ export const clusterColumnConfig = {
 	dataIndex: 'cluster',
 	key: 'cluster',
 	width: 100,
-	sorter: true,
+	sorter: false,
 	ellipsis: true,
 	align: 'left',
 	className: 'column column-cluster',
@@ -275,7 +273,7 @@ export const columnConfigMap = {
 };
 
 export const getK8sPodsListColumns = (
-	addedColumns: IPodColumn[],
+	addedColumns: IEntityColumn[],
 	groupBy: IBuilderQuery['groupBy'],
 ): ColumnType<K8sPodsRowData>[] => {
 	const updatedColumnsConfig = [...columnsConfig];
@@ -341,7 +339,7 @@ export const formatDataForTable = (
 				attribute="CPU Request"
 			>
 				<div className="progress-container">
-					<EntityProgressBar value={pod.podCPURequest} />
+					<EntityProgressBar value={pod.podCPURequest} type="request" />
 				</div>
 			</ValidateColumnValueWrapper>
 		),
@@ -352,7 +350,7 @@ export const formatDataForTable = (
 				attribute="CPU Limit"
 			>
 				<div className="progress-container">
-					<EntityProgressBar value={pod.podCPULimit} />
+					<EntityProgressBar value={pod.podCPULimit} type="limit" />
 				</div>
 			</ValidateColumnValueWrapper>
 		),
@@ -368,7 +366,7 @@ export const formatDataForTable = (
 				attribute="Memory Request"
 			>
 				<div className="progress-container">
-					<EntityProgressBar value={pod.podMemoryRequest} />
+					<EntityProgressBar value={pod.podMemoryRequest} type="request" />
 				</div>
 			</ValidateColumnValueWrapper>
 		),
@@ -379,7 +377,7 @@ export const formatDataForTable = (
 				attribute="Memory Limit"
 			>
 				<div className="progress-container">
-					<EntityProgressBar value={pod.podMemoryLimit} />
+					<EntityProgressBar value={pod.podMemoryLimit} type="limit" />
 				</div>
 			</ValidateColumnValueWrapper>
 		),
@@ -401,3 +399,39 @@ export const formatDataForTable = (
 		...pod.meta,
 		groupedByMeta: pod.meta,
 	}));
+
+/**
+ * Custom hook to manage the page size for a table.
+ * The page size is stored in local storage and is retrieved on initialization.
+ * It also provides a function to update the page size and save it to local storage.
+ */
+export const usePageSize = (
+	key: string,
+): { pageSize: number; setPageSize: (pageSize: number) => void } => {
+	const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
+
+	// Memoized key for accessing page size in local storage
+	const storageKey = useMemo(() => `k8s-${key}-page-size`, [key]);
+
+	useEffect(() => {
+		// Retrieve the stored page size from local storage on component mount
+		const storageValue = get(storageKey);
+		if (storageValue) {
+			setPageSize(parseInt(storageValue, 10));
+		}
+	}, [storageKey]);
+
+	// Function to update the page size and save it to local storage
+	const handlePageSizeChange = useCallback(
+		(value: number) => {
+			setPageSize(value);
+			set(storageKey, value.toString());
+		},
+		[storageKey],
+	);
+
+	return {
+		pageSize,
+		setPageSize: handlePageSizeChange,
+	};
+};
